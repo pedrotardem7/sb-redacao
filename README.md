@@ -1,4 +1,4 @@
-# Redação ENEM — Simulador da Folha Oficial
+# SB ENEM — Simulador da Folha Oficial
 
 Um site para treinar a redação do ENEM como na prova de verdade: você escreve direto sobre uma folha de 30 linhas numeradas, controla o tempo e pode até usar o celular como cronômetro. Funciona no navegador, sem instalar nada.
 
@@ -36,6 +36,11 @@ Acesse: https://pedrotardem7.github.io/soph-enem/
 ### Imprimir / PDF
 - Gera uma versão da folha em tamanho A4, igual ao que você vê na tela: mesmo texto, mesmas linhas, em uma única página.
 - Dica: na janela de impressão, escolha "Salvar como PDF".
+
+### Análise por IA (opcional)
+- No menu, a opção **Análise por IA** corrige sua redação pelas 5 competências do ENEM e dá uma nota estimada de 0 a 1000, com pontos fortes e o que melhorar.
+- Você escolhe o provedor e cola sua **própria chave gratuita**: **Google Gemini** (pegue em aistudio.google.com) ou **Groq** (pegue em console.groq.com, sem cartão — costuma responder bem mais rápido). A chave fica salva só no seu navegador e a cota gratuita é sua — o site não paga nem recebe nada.
+- É uma estimativa para estudo, não a nota oficial.
 
 ## Dicas de treino
 - Treine com o temporizador em **80 minutos**, um tempo comum para a redação na prova.

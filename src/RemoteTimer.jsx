@@ -16,7 +16,10 @@ function RemoteTimer({ peerId }) {
   const [state, setState] = useState(null)
   const [now, setNow] = useState(Date.now())
   const [attempt, setAttempt] = useState(0)
+  const [syncMsg, setSyncMsg] = useState('')
   const connRef = useRef(null)
+  const pendingSyncRef = useRef(false)
+  const syncTimerRef = useRef(null)
 
   useEffect(() => {
     let peer
@@ -31,7 +34,15 @@ function RemoteTimer({ peerId }) {
           c.send({ t: 'hello' })
         })
         c.on('data', (d) => {
-          if (d && d.t === 'state') setState(d)
+          if (d && d.t === 'state') {
+            setState(d)
+            if (pendingSyncRef.current) {
+              pendingSyncRef.current = false
+              setSyncMsg('Sincronizado ✓')
+              if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
+              syncTimerRef.current = setTimeout(() => setSyncMsg(''), 2500)
+            }
+          }
         })
         c.on('close', () => setStatus('offline'))
         c.on('error', () => setStatus('offline'))
@@ -44,8 +55,24 @@ function RemoteTimer({ peerId }) {
         peer.destroy()
       } catch {}
       connRef.current = null
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
     }
   }, [peerId, attempt])
+
+  useEffect(() => {
+    const onVis = () => {
+      if (document.visibilityState !== 'visible') return
+      const c = connRef.current
+      if (c && c.open) {
+        pendingSyncRef.current = true
+        c.send({ t: 'cmd', a: 'sync' })
+      } else {
+        setAttempt((n) => n + 1)
+      }
+    }
+    document.addEventListener('visibilitychange', onVis)
+    return () => document.removeEventListener('visibilitychange', onVis)
+  }, [])
 
   useEffect(() => {
     const id = setInterval(() => setNow(Date.now()), 250)
@@ -53,10 +80,20 @@ function RemoteTimer({ peerId }) {
   }, [])
 
   useEffect(() => {
-    if (state?.theme === 'rosa') {
-      document.documentElement.dataset.theme = 'rosa'
+    const apply = () => {
+      if (state?.theme === 'rosa') {
+        document.documentElement.dataset.theme = 'rosa'
+      } else {
+        delete document.documentElement.dataset.theme
+      }
+    }
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (document.startViewTransition && !reduce) {
+      document.startViewTransition(() => {
+        apply()
+      })
     } else {
-      delete document.documentElement.dataset.theme
+      apply()
     }
     return () => {
       delete document.documentElement.dataset.theme
@@ -66,6 +103,18 @@ function RemoteTimer({ peerId }) {
   const sendCmd = (obj) => {
     const c = connRef.current
     if (c && c.open) c.send(obj)
+  }
+
+  const requestSync = () => {
+    const c = connRef.current
+    if (c && c.open) {
+      pendingSyncRef.current = true
+      c.send({ t: 'cmd', a: 'sync' })
+      setSyncMsg('Sincronizando...')
+    } else {
+      setSyncMsg('Reconectando...')
+      setAttempt((n) => n + 1)
+    }
   }
 
   let value = 0
@@ -96,7 +145,7 @@ function RemoteTimer({ peerId }) {
       </div>
 
       <header className="remote-header">
-        <span className="brand">Redação ENEM</span>
+        <span className="brand">SB ENEM</span>
         <span className={`remote-status ${status}`}>
           {status === 'online'
             ? 'Sincronizado com a sua sessão'
@@ -192,6 +241,13 @@ function RemoteTimer({ peerId }) {
             </div>
           </div>
         )}
+
+        <div className="remote-sync">
+          <button className="icon-btn" onClick={requestSync}>
+            Sincronizar
+          </button>
+          {syncMsg && <span className="remote-sync-msg">{syncMsg}</span>}
+        </div>
 
         {status === 'offline' && (
           <button className="icon-btn" onClick={() => setAttempt((n) => n + 1)}>

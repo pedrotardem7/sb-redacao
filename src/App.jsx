@@ -1,8 +1,9 @@
-import { useEffect, useRef, useState } from 'react'
-import { Peer } from 'peerjs'
-import QRCode from 'qrcode'
-import RemoteTimer from './RemoteTimer.jsx'
+import { Suspense, lazy, useEffect, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
+import AiAnalysis from './AiAnalysis.jsx'
 import './App.css'
+
+const RemoteTimer = lazy(() => import('./RemoteTimer.jsx'))
 
 const TOTAL_LINES = 30
 const STORAGE_KEY = 'soph-enem-redacao'
@@ -37,10 +38,107 @@ function beep() {
   } catch {}
 }
 
+function Ic({ children }) {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      {children}
+    </svg>
+  )
+}
+
+function IconMenu() {
+  return (
+    <Ic>
+      <line x1="4" y1="7" x2="20" y2="7" />
+      <line x1="4" y1="12" x2="20" y2="12" />
+      <line x1="4" y1="17" x2="20" y2="17" />
+    </Ic>
+  )
+}
+
+function IconFocus() {
+  return (
+    <Ic>
+      <polyline points="15 3 21 3 21 9" />
+      <polyline points="9 21 3 21 3 15" />
+      <line x1="21" y1="3" x2="14" y2="10" />
+      <line x1="3" y1="21" x2="10" y2="14" />
+    </Ic>
+  )
+}
+
+function IconTrash() {
+  return (
+    <Ic>
+      <polyline points="3 6 5 6 21 6" />
+      <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+      <line x1="10" y1="11" x2="10" y2="17" />
+      <line x1="14" y1="11" x2="14" y2="17" />
+    </Ic>
+  )
+}
+
+function IconCopy() {
+  return (
+    <Ic>
+      <rect x="9" y="9" width="13" height="13" rx="2" />
+      <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" />
+    </Ic>
+  )
+}
+
+function IconQr() {
+  return (
+    <Ic>
+      <rect x="3.5" y="3.5" width="7" height="7" rx="1.5" />
+      <rect x="13.5" y="3.5" width="7" height="7" rx="1.5" />
+      <rect x="3.5" y="13.5" width="7" height="7" rx="1.5" />
+      <path d="M13.5 13.5h3v3h-3z" fill="currentColor" stroke="none" />
+      <path d="M17.5 17.5h3v3h-3z" fill="currentColor" stroke="none" />
+    </Ic>
+  )
+}
+
+function IconTheme() {
+  return (
+    <Ic>
+      <circle cx="12" cy="12" r="9" />
+      <circle cx="8.5" cy="10" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="7.5" r="1.1" fill="currentColor" stroke="none" />
+      <circle cx="15.5" cy="10" r="1.1" fill="currentColor" stroke="none" />
+    </Ic>
+  )
+}
+
+function IconSparkle() {
+  return (
+    <Ic>
+      <path d="M12 3l1.7 4.8 4.8 1.7-4.8 1.7L12 16l-1.7-4.8L5.5 9.5l4.8-1.7z" />
+      <path d="M18.5 15.5l.9 2.1 2.1.9-2.1.9-.9 2.1-.9-2.1-2.1-.9 2.1-.9z" />
+    </Ic>
+  )
+}
+
+function IconPrint() {
+  return (
+    <Ic>
+      <polyline points="6 9 6 2 18 2 18 9" />
+      <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+      <rect x="6" y="14" width="12" height="8" />
+    </Ic>
+  )
+}
+
 function App() {
   const params = new URLSearchParams(window.location.search)
   const remotePeerId = params.get('r')
-  if (remotePeerId) return <RemoteTimer peerId={remotePeerId} />
+  if (remotePeerId) {
+    return (
+      <Suspense fallback={<div className="remote-loading">Carregando cronômetro...</div>}>
+        <RemoteTimer peerId={remotePeerId} />
+      </Suspense>
+    )
+  }
 
   return <Editor />
 }
@@ -56,8 +154,9 @@ function Editor() {
   const [cursive, setCursive] = useState(false)
   const [fs, setFs] = useState(18)
   const [visualLines, setVisualLines] = useState(0)
-  const [copied, setCopied] = useState(false)
+  const [toasts, setToasts] = useState([])
   const [focusMode, setFocusMode] = useState(false)
+  const [caretLine, setCaretLine] = useState(null)
   const [theme, setTheme] = useState(() => {
     try {
       return localStorage.getItem(THEME_KEY) ?? 'padrao'
@@ -67,6 +166,7 @@ function Editor() {
   })
   const areaRef = useRef(null)
   const measureRef = useRef(null)
+  const caretMeasureRef = useRef(null)
 
   const [timerMode, setTimerMode] = useState('off')
   const [timerRunning, setTimerRunning] = useState(false)
@@ -75,6 +175,7 @@ function Editor() {
   const [customMin, setCustomMin] = useState(80)
   const [timerOpen, setTimerOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [aiOpen, setAiOpen] = useState(false)
   const [timedOut, setTimedOut] = useState(false)
   const startRef = useRef(0)
   const endRef = useRef(0)
@@ -87,7 +188,9 @@ function Editor() {
   const [qrDataUrl, setQrDataUrl] = useState('')
   const [phoneConnected, setPhoneConnected] = useState(false)
   const peerRef = useRef(null)
+  const peerPromiseRef = useRef(null)
   const connRef = useRef(null)
+  const toastId = useRef(0)
   const sendStateRef = useRef(() => {})
   const cmdRef = useRef({ toggle: () => {}, reset: () => {} })
 
@@ -147,6 +250,26 @@ function Editor() {
     } catch {}
   }, [theme])
 
+  const toggleTheme = () => {
+    const next = theme === 'rosa' ? 'padrao' : 'rosa'
+    const applyAttr = () => {
+      if (next === 'rosa') {
+        document.documentElement.dataset.theme = 'rosa'
+      } else {
+        delete document.documentElement.dataset.theme
+      }
+    }
+    const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    if (document.startViewTransition && !reduce) {
+      document.startViewTransition(() => {
+        flushSync(() => setTheme(next))
+        applyAttr()
+      })
+    } else {
+      setTheme(next)
+    }
+  }
+
   useEffect(() => {
     const el = measureRef.current
     if (!el) return
@@ -188,21 +311,36 @@ function Editor() {
   }
   sendStateRef.current = sendState
 
+  const pushToast = (msg) => {
+    const id = ++toastId.current
+    setToasts((t) => [...t.slice(-2), { id, msg }])
+    setTimeout(() => {
+      setToasts((t) => t.filter((x) => x.id !== id))
+    }, 2600)
+  }
+
   useEffect(() => {
     if (qrUrl) {
-      QRCode.toDataURL(qrUrl, {
-        width: 240,
-        margin: 2,
-        color: { dark: '#0b0e1a', light: '#ffffff' },
-      })
-        .then(setQrDataUrl)
+      let cancelled = false
+      import('qrcode')
+        .then((m) =>
+          m.default.toDataURL(qrUrl, {
+            width: 240,
+            margin: 2,
+            color: { dark: '#0b0e1a', light: '#ffffff' },
+          }),
+        )
+        .then((url) => {
+          if (!cancelled) setQrDataUrl(url)
+        })
         .catch(() => {})
+      return () => {
+        cancelled = true
+      }
     }
   }, [qrUrl])
 
-  const ensurePeer = () => {
-    if (peerRef.current) return peerRef.current
-    const peer = new Peer(peerId, { debug: 0 })
+  const attachPeerHandlers = (peer) => {
     peer.on('connection', (c) => {
       c.on('open', () => {
         connRef.current = c
@@ -217,6 +355,7 @@ function Editor() {
         if (d.a === 'focus') cmdRef.current.focus(!!d.on)
         if (d.a === 'font') cmdRef.current.font(!!d.cursive)
         if (d.a === 'fontsize') cmdRef.current.fontsize(Number(d.fs))
+        if (d.a === 'sync') sendStateRef.current()
       })
       c.on('close', () => {
         connRef.current = null
@@ -230,6 +369,19 @@ function Editor() {
     peer.on('error', () => setPhoneConnected(false))
     peerRef.current = peer
     return peer
+  }
+
+  const ensurePeer = () => {
+    if (peerRef.current) return Promise.resolve(peerRef.current)
+    if (!peerPromiseRef.current) {
+      peerPromiseRef.current = import('peerjs')
+        .then(({ Peer }) => attachPeerHandlers(new Peer(peerId, { debug: 0 })))
+        .catch(() => {
+          peerPromiseRef.current = null
+          return null
+        })
+    }
+    return peerPromiseRef.current
   }
 
   const openQr = () => {
@@ -277,10 +429,27 @@ function Editor() {
 
   const handleChange = (e) => setEssay(e.target.value)
 
+  const updateCaret = (text, pos) => {
+    const mirror = caretMeasureRef.current
+    if (!mirror) return
+    const slice = text.slice(0, pos)
+    if (!slice) {
+      setCaretLine(0)
+      return
+    }
+    mirror.textContent = slice
+    const lh = parseFloat(getComputedStyle(mirror).lineHeight)
+    if (!lh) return
+    const idx = Math.round(mirror.scrollHeight / lh) - 1
+    setCaretLine(idx >= 0 && idx < TOTAL_LINES ? idx : null)
+  }
+
   const handleClear = () => {
     if (essay && !window.confirm('Apagar toda a redação?')) return
+    const had = essay.length > 0
     setEssay('')
     areaRef.current?.focus()
+    if (had) pushToast('Texto apagado')
   }
 
   const handleCopy = async () => {
@@ -298,8 +467,7 @@ function Editor() {
       } catch {}
       ta.remove()
     }
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
+    pushToast('Texto copiado')
   }
 
   const handlePrint = () => window.print()
@@ -322,6 +490,7 @@ function Editor() {
     if (timerMode === 'off') return
     if (timerRunning) {
       setTimerRunning(false)
+      pushToast('Cronômetro pausado')
       return
     }
     if (timerMode === 'down') {
@@ -336,12 +505,14 @@ function Editor() {
     }
     setTimedOut(false)
     setTimerRunning(true)
+    pushToast('Cronômetro iniciado')
   }
 
   const resetTimer = () => {
     setTimerRunning(false)
     setTimedOut(false)
     setTimerValue(timerMode === 'down' ? preset : 0)
+    pushToast('Cronômetro reiniciado')
   }
 
   const remoteToggle = () => {
@@ -351,6 +522,7 @@ function Editor() {
       startRef.current = Date.now()
       setTimedOut(false)
       setTimerRunning(true)
+      pushToast('Cronômetro iniciado')
     } else {
       startPause()
     }
@@ -395,7 +567,7 @@ function Editor() {
       </div>
 
       <header className="toolbar">
-        <span className="brand">Redação ENEM</span>
+        <span className="brand">SB ENEM</span>
 
         <div className="stats">
           <span className={`stat ${overLimit ? 'warn' : ''}`}>
@@ -506,8 +678,8 @@ function Editor() {
             <button onClick={() => setFs((v) => Math.min(28, v + 1))}>A+</button>
           </div>
           <div className="menu-wrap" ref={menuWrapRef}>
-            <button className="icon-btn menu-btn" onClick={() => setMenuOpen((o) => !o)} title="Ações">
-              Menu
+            <button className="icon-btn menu-btn" onClick={() => setMenuOpen((o) => !o)} title="Ações" aria-label="Abrir menu de ações">
+              <IconMenu />
             </button>
             {menuOpen && (
               <div className="menu-panel">
@@ -515,38 +687,51 @@ function Editor() {
                   className="menu-item"
                   onClick={() => { setMenuOpen(false); setFocusMode(true); }}
                 >
+                  <IconFocus />
                   Modo foco
                 </button>
                 <button
                   className="menu-item"
                   onClick={() => { setMenuOpen(false); handleClear(); }}
                 >
+                  <IconTrash />
                   Limpar texto
                 </button>
                 <button
                   className="menu-item"
-                  onClick={() => handleCopy()}
+                  onClick={() => { setMenuOpen(false); handleCopy(); }}
                 >
-                  {copied ? 'Copiado!' : 'Copiar texto'}
+                  <IconCopy />
+                  Copiar texto
                 </button>
                 <button
                   className="menu-item"
                   onClick={() => { setMenuOpen(false); openQr(); }}
                 >
+                  <IconQr />
                   Cronômetro no celular
                   <span className={`dot ${phoneConnected ? 'on' : ''}`} />
                 </button>
                 <button
                   className="menu-item"
-                  onClick={() => setTheme((t) => (t === 'rosa' ? 'padrao' : 'rosa'))}
+                  onClick={toggleTheme}
                 >
+                  <IconTheme />
                   {theme === 'rosa' ? '✓ Tema rosa bebê' : 'Tema rosa bebê'}
+                </button>
+                <button
+                  className="menu-item"
+                  onClick={() => { setMenuOpen(false); setAiOpen(true); }}
+                >
+                  <IconSparkle />
+                  Análise por IA
                 </button>
                 <div className="menu-sep" />
                 <button
                   className="menu-item primary"
                   onClick={() => { setMenuOpen(false); handlePrint(); }}
                 >
+                  <IconPrint />
                   Imprimir / PDF
                 </button>
               </div>
@@ -583,7 +768,7 @@ function Editor() {
           <div className="writing-area">
             <div className="lines">
               {NUMBERS.map((n, i) => (
-                <div className="line" key={n}>
+                <div className={`line${i === caretLine ? ' active' : ''}`} key={n}>
                   <div className="line-num">
                     {i === 0 ? (
                       <span className="num-label">TEXTO<br />DEFINITIVO</span>
@@ -603,11 +788,24 @@ function Editor() {
             >
               {essay}
             </div>
+            <div
+              ref={caretMeasureRef}
+              className={`line-measure ${cursive ? 'cursive' : ''}`}
+              aria-hidden="true"
+            />
             <textarea
               ref={areaRef}
               className={`typing ${cursive ? 'cursive' : ''}`}
               value={essay}
-              onChange={handleChange}
+              onChange={(e) => {
+                handleChange(e)
+                updateCaret(e.target.value, e.target.selectionStart ?? e.target.value.length)
+              }}
+              onSelect={(e) => updateCaret(e.target.value, e.target.selectionStart ?? 0)}
+              onClick={(e) => updateCaret(e.target.value, e.target.selectionStart ?? 0)}
+              onKeyUp={(e) => updateCaret(e.target.value, e.target.selectionStart ?? 0)}
+              onFocus={(e) => updateCaret(e.target.value, e.target.selectionStart ?? 0)}
+              onBlur={() => setCaretLine(null)}
               placeholder="Comece a escrever sua redação aqui..."
               spellCheck="false"
               aria-label="Texto da redação"
@@ -628,6 +826,22 @@ function Editor() {
           Sair do foco
         </button>
       )}
+
+      {focusMode && timerMode !== 'off' && (
+        <div className={`focus-timer ${timerClass}`} title="Tempo">
+          {formatTime(timerValue)}
+        </div>
+      )}
+
+      <div className="toasts" aria-live="polite">
+        {toasts.map((t) => (
+          <div key={t.id} className="toast">
+            {t.msg}
+          </div>
+        ))}
+      </div>
+
+      <AiAnalysis essay={essay} open={aiOpen} onClose={() => setAiOpen(false)} />
 
       {qrOpen && (
         <div className="overlay">
