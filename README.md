@@ -2,7 +2,7 @@
 
 Um site para treinar redação dissertativa-argumentativa numa folha digital de 30 linhas numeradas: escreva, controle o tempo e use até o celular como cronômetro. Funciona no navegador, sem instalar nada.
 
-Acesse: https://pedrotardem7.github.io/soph-enem/
+Acesse: https://pedrotardem7.github.io/sb-redacao/
 
 ## Como funciona
 
