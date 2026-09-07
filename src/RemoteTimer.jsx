@@ -16,10 +16,7 @@ function RemoteTimer({ peerId }) {
   const [state, setState] = useState(null)
   const [now, setNow] = useState(Date.now())
   const [attempt, setAttempt] = useState(0)
-  const [syncMsg, setSyncMsg] = useState('')
   const connRef = useRef(null)
-  const pendingSyncRef = useRef(false)
-  const syncTimerRef = useRef(null)
   const lastSeenRef = useRef(Date.now())
   const failCountRef = useRef(0)
 
@@ -39,12 +36,6 @@ function RemoteTimer({ peerId }) {
           if (d && d.t === 'state') {
             lastSeenRef.current = Date.now()
             setState(d)
-            if (pendingSyncRef.current) {
-              pendingSyncRef.current = false
-              setSyncMsg('Sincronizado ✓')
-              if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
-              syncTimerRef.current = setTimeout(() => setSyncMsg(''), 2500)
-            }
           }
         })
         c.on('close', () => setStatus('offline'))
@@ -58,7 +49,6 @@ function RemoteTimer({ peerId }) {
         peer.destroy()
       } catch {}
       connRef.current = null
-      if (syncTimerRef.current) clearTimeout(syncTimerRef.current)
     }
   }, [peerId, attempt])
 
@@ -68,7 +58,6 @@ function RemoteTimer({ peerId }) {
       lastSeenRef.current = Date.now()
       const c = connRef.current
       if (c && c.open) {
-        pendingSyncRef.current = true
         c.send({ t: 'cmd', a: 'sync' })
       } else {
         setAttempt((n) => n + 1)
@@ -136,18 +125,6 @@ function RemoteTimer({ peerId }) {
   const sendCmd = (obj) => {
     const c = connRef.current
     if (c && c.open) c.send(obj)
-  }
-
-  const requestSync = () => {
-    const c = connRef.current
-    if (c && c.open) {
-      pendingSyncRef.current = true
-      c.send({ t: 'cmd', a: 'sync' })
-      setSyncMsg('Sincronizando...')
-    } else {
-      setSyncMsg('Reconectando...')
-      setAttempt((n) => n + 1)
-    }
   }
 
   let value = 0
@@ -274,13 +251,6 @@ function RemoteTimer({ peerId }) {
             </div>
           </div>
         )}
-
-        <div className="remote-sync">
-          <button className="icon-btn" onClick={requestSync}>
-            Sincronizar
-          </button>
-          {syncMsg && <span className="remote-sync-msg">{syncMsg}</span>}
-        </div>
 
         {status === 'offline' && (
           <button className="icon-btn" onClick={() => setAttempt((n) => n + 1)}>

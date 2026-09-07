@@ -1,7 +1,32 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
-  <rect x="6" y="4" width="52" height="56" rx="6" fill="#ffffff" stroke="#c8102e" stroke-width="5"/>
-  <line x1="17" y1="21" x2="47" y2="21" stroke="#1b2138" stroke-width="4" stroke-linecap="round"/>
-  <line x1="17" y1="31" x2="47" y2="31" stroke="#7c5cff" stroke-width="4" stroke-linecap="round"/>
-  <line x1="17" y1="41" x2="39" y2="41" stroke="#00d4ff" stroke-width="4" stroke-linecap="round"/>
-  <line x1="17" y1="51" x2="43" y2="51" stroke="#9aa3c7" stroke-width="4" stroke-linecap="round"/>
+  <rect x="7" y="3" width="50" height="58" rx="4" fill="#ffffff" stroke="#e2e5ee" stroke-width="1"/>
+  <rect x="14" y="7" width="36" height="3.4" rx="1.7" fill="#8a8fa3"/>
+  <rect x="23" y="12" width="18" height="2.2" rx="1.1" fill="#c3c8d8"/>
+  <rect x="10" y="17" width="9" height="42" fill="#f1f2f7"/>
+  <line x1="19" y1="17" x2="19" y2="59" stroke="#d9dce7" stroke-width="1"/>
+  <g stroke="#d3d7e4" stroke-width="1">
+    <line x1="19" y1="22.5" x2="54" y2="22.5"/>
+    <line x1="19" y1="27" x2="54" y2="27"/>
+    <line x1="19" y1="31.5" x2="54" y2="31.5"/>
+    <line x1="19" y1="36" x2="54" y2="36"/>
+    <line x1="19" y1="40.5" x2="54" y2="40.5"/>
+    <line x1="19" y1="45" x2="54" y2="45"/>
+    <line x1="19" y1="49.5" x2="54" y2="49.5"/>
+    <line x1="19" y1="54" x2="54" y2="54"/>
+  </g>
+  <rect x="10" y="17" width="44" height="42" rx="1.5" fill="none" stroke="#c8102e" stroke-width="2.5"/>
+  <g font-family="Arial, Helvetica, sans-serif" font-size="3.8" font-weight="bold" fill="#8b91a6" text-anchor="middle">
+    <text x="14.5" y="23.8">1</text>
+    <text x="14.5" y="28.3">2</text>
+    <text x="14.5" y="32.8">3</text>
+    <text x="14.5" y="37.3">4</text>
+    <text x="14.5" y="41.8">5</text>
+    <text x="14.5" y="46.3">6</text>
+    <text x="14.5" y="50.8">7</text>
+    <text x="14.5" y="55.3">8</text>
+  </g>
+  <text x="21" y="21.6" font-family="Arial, Helvetica, sans-serif" font-size="3.1" font-weight="bold" letter-spacing="0.2" fill="#c8102e">TEXTO DEFINITIVO</text>
+  <path d="M22 30.5 q3 -2.6 6 0 t6 0 t6 0 t6 0" stroke="#1b2138" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+  <path d="M22 35 q3 -2.6 6 0 t6 0 t6 0" stroke="#1b2138" stroke-width="1.4" fill="none" stroke-linecap="round"/>
+  <path d="M22 39.5 q3 -2.6 6 0 t6 0" stroke="#39415e" stroke-width="1.4" fill="none" stroke-linecap="round"/>
 </svg>
