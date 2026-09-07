@@ -8,7 +8,12 @@ const RemoteTimer = lazy(() => import('./RemoteTimer.jsx'))
 const TOTAL_LINES = 30
 const STORAGE_KEY = 'soph-enem-redacao'
 const THEME_KEY = 'soph-enem-theme'
+const PEER_ID_KEY = 'soph-enem-peer-id'
 const PRESETS = [30, 60, 80, 120]
+
+function newPeerId() {
+  return 'enem-' + Math.random().toString(36).slice(2, 10)
+}
 
 const NUMBERS = Array.from({ length: TOTAL_LINES }, (_, i) => i + 1)
 
@@ -182,7 +187,18 @@ function Editor() {
   const timerWrapRef = useRef(null)
   const menuWrapRef = useRef(null)
 
-  const [peerId] = useState(() => 'enem-' + Math.random().toString(36).slice(2, 10))
+  const [peerId, setPeerId] = useState(() => {
+    try {
+      let id = localStorage.getItem(PEER_ID_KEY)
+      if (!id) {
+        id = newPeerId()
+        localStorage.setItem(PEER_ID_KEY, id)
+      }
+      return id
+    } catch {
+      return newPeerId()
+    }
+  })
   const [qrOpen, setQrOpen] = useState(false)
   const [qrUrl, setQrUrl] = useState('')
   const [qrDataUrl, setQrDataUrl] = useState('')
@@ -366,7 +382,22 @@ function Editor() {
         setPhoneConnected(false)
       })
     })
-    peer.on('error', () => setPhoneConnected(false))
+    peer.on('error', (err) => {
+      if (err?.type === 'unavailable-id') {
+        try {
+          peer.destroy()
+        } catch {}
+        const fresh = newPeerId()
+        try {
+          localStorage.setItem(PEER_ID_KEY, fresh)
+        } catch {}
+        peerRef.current = null
+        peerPromiseRef.current = null
+        setPeerId(fresh)
+      } else {
+        setPhoneConnected(false)
+      }
+    })
     peerRef.current = peer
     return peer
   }
@@ -385,10 +416,21 @@ function Editor() {
   }
 
   const openQr = () => {
-    ensurePeer()
-    setQrUrl(window.location.origin + window.location.pathname + '?r=' + peerId)
     setQrOpen(true)
   }
+
+  useEffect(() => {
+    if (!qrOpen) return
+    let cancelled = false
+    ensurePeer().then(() => {
+      if (!cancelled) {
+        setQrUrl(window.location.origin + window.location.pathname + '?r=' + peerId)
+      }
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [qrOpen, peerId])
 
   const goToSheet = () => {
     setQrOpen(false)

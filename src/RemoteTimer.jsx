@@ -20,6 +20,8 @@ function RemoteTimer({ peerId }) {
   const connRef = useRef(null)
   const pendingSyncRef = useRef(false)
   const syncTimerRef = useRef(null)
+  const lastSeenRef = useRef(Date.now())
+  const failCountRef = useRef(0)
 
   useEffect(() => {
     let peer
@@ -35,6 +37,7 @@ function RemoteTimer({ peerId }) {
         })
         c.on('data', (d) => {
           if (d && d.t === 'state') {
+            lastSeenRef.current = Date.now()
             setState(d)
             if (pendingSyncRef.current) {
               pendingSyncRef.current = false
@@ -62,6 +65,7 @@ function RemoteTimer({ peerId }) {
   useEffect(() => {
     const onVis = () => {
       if (document.visibilityState !== 'visible') return
+      lastSeenRef.current = Date.now()
       const c = connRef.current
       if (c && c.open) {
         pendingSyncRef.current = true
@@ -72,6 +76,35 @@ function RemoteTimer({ peerId }) {
     }
     document.addEventListener('visibilitychange', onVis)
     return () => document.removeEventListener('visibilitychange', onVis)
+  }, [])
+
+  useEffect(() => {
+    if (status !== 'offline') {
+      failCountRef.current = 0
+      return
+    }
+    const delays = [2000, 5000, 10000, 20000, 30000]
+    const wait = delays[Math.min(failCountRef.current, delays.length - 1)]
+    failCountRef.current += 1
+    const t = setTimeout(() => setAttempt((n) => n + 1), wait)
+    return () => clearTimeout(t)
+  }, [status, attempt])
+
+  useEffect(() => {
+    const pingId = setInterval(() => {
+      const c = connRef.current
+      if (c && c.open) c.send({ t: 'cmd', a: 'sync' })
+    }, 15000)
+    const watchId = setInterval(() => {
+      const c = connRef.current
+      if (c && c.open && Date.now() - lastSeenRef.current > 40000) {
+        setAttempt((n) => n + 1)
+      }
+    }, 10000)
+    return () => {
+      clearInterval(pingId)
+      clearInterval(watchId)
+    }
   }, [])
 
   useEffect(() => {
