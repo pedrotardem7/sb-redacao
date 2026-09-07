@@ -216,6 +216,7 @@ function Editor() {
   const [interimText, setInterimText] = useState('')
   const recogRef = useRef(null)
   const wantListeningRef = useRef(false)
+  const restartsRef = useRef(0)
   const essayRef = useRef('')
   const [docTitle, setDocTitle] = useState(() => {
     try {
@@ -582,7 +583,13 @@ function Editor() {
     })
   }
 
-  const startDictation = () => {
+  const startDictation = async () => {
+    try {
+      if (navigator.brave && (await navigator.brave.isBrave())) {
+        pushToast('O Brave bloqueia o ditado por voz. Use Chrome ou Edge')
+        return
+      }
+    } catch {}
     const SR = window.SpeechRecognition || window.webkitSpeechRecognition
     if (!SR) {
       pushToast('Ditado não suportado neste navegador')
@@ -594,6 +601,7 @@ function Editor() {
       rec.continuous = true
       rec.interimResults = true
       rec.onresult = (e) => {
+        restartsRef.current = 0
         let interim = ''
         let finals = ''
         for (let i = e.resultIndex; i < e.results.length; i++) {
@@ -601,7 +609,8 @@ function Editor() {
           if (e.results[i].isFinal) finals += t
           else interim += t
         }
-        if (finals) insertDictation(normalizeSpoken(finals))
+        const chunk = normalizeSpoken(finals)
+        if (chunk) insertDictation(chunk)
         setInterimText(interim)
       }
       rec.onerror = (e) => {
@@ -610,21 +619,35 @@ function Editor() {
           setListening(false)
           setInterimText('')
           pushToast('Permissão do microfone negada')
+        } else if (e.error === 'audio-capture') {
+          wantListeningRef.current = false
+          setListening(false)
+          setInterimText('')
+          pushToast('Nenhum microfone encontrado')
         }
       }
       rec.onend = () => {
-        if (wantListeningRef.current) {
-          try {
-            rec.start()
-          } catch {}
-        } else {
+        if (!wantListeningRef.current) {
           setListening(false)
           setInterimText('')
+          return
         }
+        restartsRef.current += 1
+        if (restartsRef.current > 10) {
+          wantListeningRef.current = false
+          setListening(false)
+          setInterimText('')
+          pushToast('Ditado interrompido. Verifique o microfone e tente de novo')
+          return
+        }
+        try {
+          rec.start()
+        } catch {}
       }
       recogRef.current = rec
     }
     wantListeningRef.current = true
+    restartsRef.current = 0
     setListening(true)
     try {
       recogRef.current.start()
