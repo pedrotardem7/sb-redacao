@@ -60,7 +60,7 @@ const SCHEMA = {
   required: ['nota_total', 'competencias', 'pontos_fortes', 'para_melhorar', 'resumo'],
 }
 
-const SYSTEM_PROMPT = `Você é um corretor oficial do ENEM: experiente, rigoroso e imparcial, como um ser humano que corrige milhares de redações. Nota 1000 é RARÍSSIMA — só dê 200 numa competência se TODOS os requisitos do nível máximo estiverem cumpridos. Na dúvida entre dois níveis, escolha o MENOR.
+const SYSTEM_PROMPT = `Você é um corretor experiente de redações dissertativa-argumentativas: rigoroso e imparcial, como um ser humano que corrige milhares de redações. Nota 1000 é RARÍSSIMA — só dê 200 numa competência se TODOS os requisitos do nível máximo estiverem cumpridos. Na dúvida entre dois níveis, escolha o MENOR.
 
 ESCALA (cada competência): 0, 40, 80, 120, 160 ou 200.
 
@@ -392,7 +392,7 @@ function AiAnalysis({ essay, open, onClose }) {
               </>
             )}
             <p className="ai-note">
-              Estimativa para estudo — não é a nota oficial do ENEM.
+              Estimativa para estudo — não é uma nota oficial.
             </p>
           </div>
         )}

@@ -155,7 +155,7 @@ function RemoteTimer({ peerId }) {
       </div>
 
       <header className="remote-header">
-        <span className="brand">SB ENEM</span>
+        <span className="brand">SB REDAÇÃO</span>
         <span className={`remote-status ${status}`}>
           {status === 'online'
             ? 'Sincronizado com a sua sessão'

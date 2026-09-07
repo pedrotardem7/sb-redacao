@@ -9,10 +9,11 @@ const TOTAL_LINES = 30
 const STORAGE_KEY = 'soph-enem-redacao'
 const THEME_KEY = 'soph-enem-theme'
 const PEER_ID_KEY = 'soph-enem-peer-id'
+const TITLE_KEY = 'soph-enem-titulo'
 const PRESETS = [30, 60, 80, 120]
 
 function newPeerId() {
-  return 'enem-' + Math.random().toString(36).slice(2, 10)
+  return 'sb-' + Math.random().toString(36).slice(2, 10)
 }
 
 const NUMBERS = Array.from({ length: TOTAL_LINES }, (_, i) => i + 1)
@@ -124,6 +125,26 @@ function IconSparkle() {
   )
 }
 
+function IconDownload() {
+  return (
+    <Ic>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="7 10 12 15 17 10" />
+      <line x1="12" y1="15" x2="12" y2="3" />
+    </Ic>
+  )
+}
+
+function IconUpload() {
+  return (
+    <Ic>
+      <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+      <polyline points="17 8 12 3 7 8" />
+      <line x1="12" y1="3" x2="12" y2="15" />
+    </Ic>
+  )
+}
+
 function IconPrint() {
   return (
     <Ic>
@@ -160,6 +181,16 @@ function Editor() {
   const [fs, setFs] = useState(18)
   const [visualLines, setVisualLines] = useState(0)
   const [toasts, setToasts] = useState([])
+  const [docTitle, setDocTitle] = useState(() => {
+    try {
+      return localStorage.getItem(TITLE_KEY) ?? ''
+    } catch {
+      return ''
+    }
+  })
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [draftTitle, setDraftTitle] = useState('')
+  const cancelTitleRef = useRef(false)
   const [focusMode, setFocusMode] = useState(false)
   const [caretLine, setCaretLine] = useState(null)
   const [theme, setTheme] = useState(() => {
@@ -172,6 +203,7 @@ function Editor() {
   const areaRef = useRef(null)
   const measureRef = useRef(null)
   const caretMeasureRef = useRef(null)
+  const fileRef = useRef(null)
 
   const [timerMode, setTimerMode] = useState('off')
   const [timerRunning, setTimerRunning] = useState(false)
@@ -292,6 +324,16 @@ function Editor() {
     const lh = parseFloat(getComputedStyle(el).lineHeight)
     setVisualLines(lh ? Math.max(1, Math.round(el.scrollHeight / lh)) : 1)
   }, [essay, cursive, fs])
+
+  useEffect(() => {
+    if (!essay) return
+    const { text, limited } = fitToLimit(essay)
+    if (limited) {
+      setEssay(text)
+      pushToast('Texto ajustado ao limite de 30 linhas')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   useEffect(() => {
     if (!timerRunning || timerMode === 'off') return
@@ -460,7 +502,6 @@ function Editor() {
 
   const words = essay.trim() ? essay.trim().split(/\s+/).length : 0
   const chars = essay.length
-  const overLimit = visualLines > TOTAL_LINES
 
   const timerClass =
     timerMode === 'down' && timerValue === 0
@@ -469,7 +510,47 @@ function Editor() {
         ? 'warn'
         : ''
 
-  const handleChange = (e) => setEssay(e.target.value)
+  const lastLimitToast = useRef(0)
+
+  const countLines = (text) => {
+    const mirror = caretMeasureRef.current
+    if (!mirror || !text) return 0
+    mirror.textContent = text
+    const lh = parseFloat(getComputedStyle(mirror).lineHeight)
+    if (!lh) return 0
+    return Math.max(1, Math.round(mirror.scrollHeight / lh))
+  }
+
+  const fitToLimit = (text) => {
+    if (countLines(text) <= TOTAL_LINES) return { text, limited: false }
+    const mirror = caretMeasureRef.current
+    const lh = parseFloat(getComputedStyle(mirror).lineHeight) || 28
+    let lo = 0
+    let hi = text.length
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1
+      mirror.textContent = text.slice(0, mid)
+      const lines = Math.max(1, Math.round(mirror.scrollHeight / lh))
+      if (lines <= TOTAL_LINES) lo = mid
+      else hi = mid - 1
+    }
+    return { text: text.slice(0, lo), limited: true }
+  }
+
+  const notifyLimit = () => {
+    const now = Date.now()
+    if (now - lastLimitToast.current > 2500) {
+      lastLimitToast.current = now
+      pushToast('Limite de 30 linhas atingido')
+    }
+  }
+
+  const handleChange = (e) => {
+    const { text, limited } = fitToLimit(e.target.value)
+    if (limited) notifyLimit()
+    setEssay(text)
+    updateCaret(text, Math.min(e.target.selectionStart ?? text.length, text.length))
+  }
 
   const updateCaret = (text, pos) => {
     const mirror = caretMeasureRef.current
@@ -513,6 +594,64 @@ function Editor() {
   }
 
   const handlePrint = () => window.print()
+
+  const startEditTitle = () => {
+    setDraftTitle(docTitle)
+    cancelTitleRef.current = false
+    setEditingTitle(true)
+  }
+
+  const commitTitle = () => {
+    if (cancelTitleRef.current) {
+      cancelTitleRef.current = false
+      setEditingTitle(false)
+      return
+    }
+    const v = draftTitle.trim()
+    setDocTitle(v)
+    try {
+      localStorage.setItem(TITLE_KEY, v)
+    } catch {}
+    setEditingTitle(false)
+  }
+
+  const slugify = (s) =>
+    s
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '')
+      .slice(0, 40) || 'redacao'
+
+  const handleExport = () => {
+    const blob = new Blob(['\uFEFF' + essay], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    const d = new Date()
+    const p = (n) => String(n).padStart(2, '0')
+    a.href = url
+    a.download = `${slugify(docTitle)}-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.txt`
+    document.body.appendChild(a)
+    a.click()
+    a.remove()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    pushToast('Redação exportada')
+  }
+
+  const handleImport = async (e) => {
+    const file = e.target.files?.[0]
+    e.target.value = ''
+    if (!file) return
+    const raw = (await file.text()).replace(/^\uFEFF/, '')
+    if (essay && essay !== raw) {
+      if (!window.confirm('Substituir o texto atual pelo conteúdo do arquivo?')) return
+    }
+    const { text, limited } = fitToLimit(raw)
+    setEssay(text)
+    areaRef.current?.focus()
+    pushToast(limited ? 'Texto ajustado ao limite de 30 linhas' : 'Redação importada')
+  }
 
   const switchTimerMode = (m) => {
     setTimerRunning(false)
@@ -609,11 +748,11 @@ function Editor() {
       </div>
 
       <header className="toolbar">
-        <span className="brand">SB ENEM</span>
+        <span className="brand">SB REDAÇÃO</span>
 
         <div className="stats">
-          <span className={`stat ${overLimit ? 'warn' : ''}`}>
-            Linhas <strong>{visualLines}/{TOTAL_LINES}</strong>
+          <span className="stat">
+            Linhas <strong>{Math.min(visualLines, TOTAL_LINES)}/{TOTAL_LINES}</strong>
           </span>
           <span className="stat">Palavras <strong>{words}</strong></span>
           <span className="stat">Caracteres <strong>{chars}</strong></span>
@@ -748,6 +887,20 @@ function Editor() {
                 </button>
                 <button
                   className="menu-item"
+                  onClick={() => { setMenuOpen(false); handleExport(); }}
+                >
+                  <IconDownload />
+                  Exportar redação
+                </button>
+                <button
+                  className="menu-item"
+                  onClick={() => { setMenuOpen(false); fileRef.current?.click(); }}
+                >
+                  <IconUpload />
+                  Importar redação
+                </button>
+                <button
+                  className="menu-item"
                   onClick={() => { setMenuOpen(false); openQr(); }}
                 >
                   <IconQr />
@@ -790,21 +943,40 @@ function Editor() {
           </div>
         )}
 
-        {overLimit && (
-          <div className="warning">
-            Atenção: sua redação passou de 30 linhas ({visualLines}). Na prova oficial o texto fica
-            limitado à folha definitiva.
-          </div>
-        )}
-
         <div
           className={`sheet ${cursive ? 'sheet-cursive' : ''}`}
           style={{ '--user-fs': `${fs}px`, '--user-fs-cursive': `${Math.round(fs * 1.45)}px` }}
         >
           <div className="sheet-header">
-            <p className="h-top">Exame Nacional do Ensino Médio</p>
+            <p className="h-top">SB Redação</p>
             <h2 className="h-title">Redação</h2>
-            <p className="h-sub">Folha definitiva — 30 linhas</p>
+            {editingTitle ? (
+              <input
+                className="h-sub-input"
+                value={draftTitle}
+                autoFocus
+                maxLength={60}
+                placeholder="Digite seu tema aqui"
+                aria-label="Nome da redação"
+                onChange={(e) => setDraftTitle(e.target.value)}
+                onBlur={commitTitle}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') commitTitle()
+                  if (e.key === 'Escape') {
+                    cancelTitleRef.current = true
+                    setEditingTitle(false)
+                  }
+                }}
+              />
+            ) : (
+              <p
+                className={`h-sub${docTitle ? ' custom' : ''}`}
+                onClick={startEditTitle}
+                title="Clique para nomear a redação"
+              >
+                {docTitle || 'Digite seu tema aqui'}
+              </p>
+            )}
           </div>
 
           <div className="writing-area">
@@ -839,10 +1011,7 @@ function Editor() {
               ref={areaRef}
               className={`typing ${cursive ? 'cursive' : ''}`}
               value={essay}
-              onChange={(e) => {
-                handleChange(e)
-                updateCaret(e.target.value, e.target.selectionStart ?? e.target.value.length)
-              }}
+              onChange={handleChange}
               onSelect={(e) => updateCaret(e.target.value, e.target.selectionStart ?? 0)}
               onClick={(e) => updateCaret(e.target.value, e.target.selectionStart ?? 0)}
               onKeyUp={(e) => updateCaret(e.target.value, e.target.selectionStart ?? 0)}
@@ -884,6 +1053,16 @@ function Editor() {
       </div>
 
       <AiAnalysis essay={essay} open={aiOpen} onClose={() => setAiOpen(false)} />
+
+      <input
+        ref={fileRef}
+        type="file"
+        accept=".txt,.md,text/plain"
+        style={{ display: 'none' }}
+        aria-hidden="true"
+        tabIndex={-1}
+        onChange={handleImport}
+      />
 
       {qrOpen && (
         <div className="overlay">

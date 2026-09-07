@@ -1,14 +1,14 @@
-# SB ENEM — Simulador da Folha Oficial
+# SB Redação — Folha de Redação
 
-Um site para treinar a redação do ENEM como na prova de verdade: você escreve direto sobre uma folha de 30 linhas numeradas, controla o tempo e pode até usar o celular como cronômetro. Funciona no navegador, sem instalar nada.
+Um site para treinar redação dissertativa-argumentativa numa folha digital de 30 linhas numeradas: escreva, controle o tempo e use até o celular como cronômetro. Funciona no navegador, sem instalar nada.
 
 Acesse: https://pedrotardem7.github.io/soph-enem/
 
 ## Como funciona
 
 ### A folha
-- Clique na folha e comece a digitar. O texto se ajusta às linhas numeradas, igual à folha definitiva da prova.
-- No topo você acompanha **linhas usadas (de 30)**, **palavras** e **caracteres**. Se passar de 30 linhas, aparece um aviso — na prova oficial o texto fica limitado à folha.
+- Clique na folha e comece a digitar. O texto se ajusta às linhas numeradas da folha.
+- No topo você acompanha **linhas usadas (de 30)**, **palavras** e **caracteres**. O texto trava em 30 linhas, como na folha.
 - O que você escreve é **salvo automaticamente** no navegador: pode fechar e voltar depois que o texto continua lá.
 - **Digitação / Cursiva**: troca a letra do texto, inclusive com estilo de manuscrito. **A− / A+** ajusta o tamanho.
 
@@ -24,10 +24,12 @@ Acesse: https://pedrotardem7.github.io/soph-enem/
 - No menu, escolha **Cronômetro no celular** e aponte a câmera do celular para o QR Code (ou abra o link).
 - O celular vira uma tela gigante do cronômetro, **sincronizada** com o site: dá para trocar o modo, escolher o tempo, iniciar, pausar e reiniciar por lá.
 - Também dá para entrar e sair do **modo foco** e trocar **fonte e tamanho do texto** pelo celular.
-- Cada QR Code vale só para aquela sessão: fechou a aba do computador, ele deixa de funcionar.
+- O link do celular continua valendo mesmo se você recarregar a página do computador, e ele reconecta sozinho se a conexão cair.
 
 ### Menu
-- O botão **Menu** reúne as ações: **modo foco**, **limpar** o texto, **copiar** o texto, **cronômetro no celular**, **tema rosa bebê** e **imprimir / PDF**.
+- O botão **Menu** reúne as ações: **modo foco**, **limpar**, **copiar**, **exportar** e **importar** o texto, **cronômetro no celular**, **tema rosa bebê**, **análise por IA** e **imprimir / PDF**.
+- **Exportar** baixa a redação num arquivo `.txt` com o nome que você deu a ela e a data; **importar** carrega um arquivo de volta para a folha (pede confirmação antes de substituir o texto atual).
+- Clique no subtítulo da folha para **nomear a redação** (Enter salva, Esc cancela); o nome aparece na folha, no PDF e no arquivo exportado.
 
 ### Modo foco
 - Esconde tudo e deixa só a folha na tela, com o fundo escurecido. Ideal para escrever sem distração.
@@ -38,14 +40,14 @@ Acesse: https://pedrotardem7.github.io/soph-enem/
 - Dica: na janela de impressão, escolha "Salvar como PDF".
 
 ### Análise por IA (opcional)
-- No menu, a opção **Análise por IA** corrige sua redação pelas 5 competências do ENEM e dá uma nota estimada de 0 a 1000, com pontos fortes e o que melhorar.
+- No menu, a opção **Análise por IA** corrige sua redação por 5 competências e dá uma nota estimada de 0 a 1000, com pontos fortes e o que melhorar.
 - Você escolhe o provedor e cola sua **própria chave gratuita**: **Google Gemini** (pegue em aistudio.google.com) ou **Groq** (pegue em console.groq.com, sem cartão — costuma responder bem mais rápido). A chave fica salva só no seu navegador e a cota gratuita é sua — o site não paga nem recebe nada.
 - É uma estimativa para estudo, não a nota oficial.
 
 ## Dicas de treino
-- Treine com o temporizador em **80 minutos**, um tempo comum para a redação na prova.
+- Treine com o temporizador em **80 minutos**, um tempo comum para treinar redação.
 - Tente fechar o texto entre **25 e 30 linhas**.
-- Use o modo foco + cronômetro no celular para simular o ambiente da prova.
+- Use o modo foco + cronômetro no celular para treinar sem distração.
 
 ---
 
