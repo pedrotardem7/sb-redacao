@@ -145,6 +145,37 @@ function IconUpload() {
   )
 }
 
+function IconMic() {
+  return (
+    <Ic>
+      <rect x="9" y="2" width="6" height="12" rx="3" />
+      <path d="M5 10a7 7 0 0 0 14 0" />
+      <line x1="12" y1="17" x2="12" y2="22" />
+    </Ic>
+  )
+}
+
+const SPOKEN_PUNCT = [
+  [/ponto final/gi, '.'],
+  [/ponto de interrogação/gi, '?'],
+  [/ponto de exclamação/gi, '!'],
+  [/ponto e vírgula/gi, ';'],
+  [/dois pontos/gi, ':'],
+  [/novo parágrafo/gi, '\n\n'],
+  [/nova linha|quebra de linha/gi, '\n'],
+  [/abre aspas|fecha aspas/gi, '"'],
+  [/travessão/gi, '—'],
+  [/vírgula/gi, ','],
+  [/(^|\s)ponto(?!\s+de)(\s|$)/gi, '$1.$2'],
+]
+
+function normalizeSpoken(text) {
+  let out = ` ${text}`
+  for (const [re, sub] of SPOKEN_PUNCT) out = out.replace(re, sub)
+  out = out.replace(/ {2,}/g, ' ').replace(/ ([.,;:!?])/g, '$1').replace(/\n /g, '\n').replace(/ \n/g, '\n')
+  return out.trimStart()
+}
+
 function IconPrint() {
   return (
     <Ic>
@@ -181,6 +212,11 @@ function Editor() {
   const [fs, setFs] = useState(18)
   const [visualLines, setVisualLines] = useState(0)
   const [toasts, setToasts] = useState([])
+  const [listening, setListening] = useState(false)
+  const [interimText, setInterimText] = useState('')
+  const recogRef = useRef(null)
+  const wantListeningRef = useRef(false)
+  const essayRef = useRef('')
   const [docTitle, setDocTitle] = useState(() => {
     try {
       return localStorage.getItem(TITLE_KEY) ?? ''
@@ -286,6 +322,16 @@ function Editor() {
     }, 300)
     return () => clearTimeout(t)
   }, [essay])
+
+  useEffect(
+    () => () => {
+      wantListeningRef.current = false
+      try {
+        recogRef.current?.abort()
+      } catch {}
+    },
+    [],
+  )
 
   useEffect(() => {
     if (theme === 'rosa') {
@@ -509,6 +555,90 @@ function Editor() {
       : timerMode === 'down' && timerValue <= 300
         ? 'warn'
         : ''
+
+  essayRef.current = essay
+
+  const speechSupported =
+    typeof window !== 'undefined' &&
+    !!(window.SpeechRecognition || window.webkitSpeechRecognition)
+
+  const insertDictation = (chunk) => {
+    const prev = essayRef.current
+    const el = areaRef.current
+    const start = el ? (el.selectionStart ?? prev.length) : prev.length
+    const end = el ? (el.selectionEnd ?? prev.length) : prev.length
+    const needsSpace =
+      start > 0 && !/\s/.test(prev[start - 1]) && !/^[\s.,;:!?)"'\n—]/.test(chunk)
+    const next = prev.slice(0, start) + (needsSpace ? ' ' : '') + chunk + prev.slice(end)
+    const { text: fitted, limited } = fitToLimit(next)
+    if (limited) notifyLimit()
+    setEssay(fitted)
+    const pos = Math.min(start + (needsSpace ? 1 : 0) + chunk.length, fitted.length)
+    requestAnimationFrame(() => {
+      try {
+        el?.focus()
+        el?.setSelectionRange(pos, pos)
+      } catch {}
+    })
+  }
+
+  const startDictation = () => {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition
+    if (!SR) {
+      pushToast('Ditado não suportado neste navegador')
+      return
+    }
+    if (!recogRef.current) {
+      const rec = new SR()
+      rec.lang = 'pt-BR'
+      rec.continuous = true
+      rec.interimResults = true
+      rec.onresult = (e) => {
+        let interim = ''
+        let finals = ''
+        for (let i = e.resultIndex; i < e.results.length; i++) {
+          const t = e.results[i][0].transcript
+          if (e.results[i].isFinal) finals += t
+          else interim += t
+        }
+        if (finals) insertDictation(normalizeSpoken(finals))
+        setInterimText(interim)
+      }
+      rec.onerror = (e) => {
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+          wantListeningRef.current = false
+          setListening(false)
+          setInterimText('')
+          pushToast('Permissão do microfone negada')
+        }
+      }
+      rec.onend = () => {
+        if (wantListeningRef.current) {
+          try {
+            rec.start()
+          } catch {}
+        } else {
+          setListening(false)
+          setInterimText('')
+        }
+      }
+      recogRef.current = rec
+    }
+    wantListeningRef.current = true
+    setListening(true)
+    try {
+      recogRef.current.start()
+    } catch {}
+  }
+
+  const stopDictation = () => {
+    wantListeningRef.current = false
+    setInterimText('')
+    try {
+      recogRef.current?.stop()
+    } catch {}
+    setListening(false)
+  }
 
   const lastLimitToast = useRef(0)
 
@@ -899,6 +1029,16 @@ function Editor() {
                   <IconUpload />
                   Importar redação
                 </button>
+                {speechSupported && (
+                  <button
+                    className="menu-item"
+                    title="Fale a pontuação: ponto, vírgula, nova linha"
+                    onClick={() => { setMenuOpen(false); listening ? stopDictation() : startDictation(); }}
+                  >
+                    <IconMic />
+                    {listening ? 'Parar ditado' : 'Ditar texto'}
+                  </button>
+                )}
                 <button
                   className="menu-item"
                   onClick={() => { setMenuOpen(false); openQr(); }}
@@ -1051,6 +1191,18 @@ function Editor() {
           </div>
         ))}
       </div>
+
+      {listening && (
+        <button
+          className="dictate-pill"
+          onClick={stopDictation}
+          title="Parar ditado"
+          aria-label="Parar ditado"
+        >
+          <span className="dictate-dot" aria-hidden="true" />
+          <span className="dictate-text">{interimText || 'Ouvindo... clique para parar'}</span>
+        </button>
+      )}
 
       <AiAnalysis essay={essay} open={aiOpen} onClose={() => setAiOpen(false)} />
 

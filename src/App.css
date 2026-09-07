@@ -823,6 +823,45 @@
   animation: toastLife 2.6s ease both;
 }
 
+.dictate-pill {
+  position: fixed;
+  bottom: 1rem;
+  left: 1rem;
+  z-index: 55;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  max-width: min(420px, calc(100vw - 2rem));
+  background: rgba(17, 21, 40, 0.9);
+  border: 1px solid var(--border);
+  color: var(--text);
+  padding: 0.55rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.85rem;
+  font-family: inherit;
+  cursor: pointer;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  animation: fadeDown 0.3s ease both;
+}
+
+.dictate-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #ff3b5c;
+  flex: none;
+  box-shadow: 0 0 10px rgba(255, 59, 92, 0.8);
+  animation: pulseSoft 1s ease-in-out infinite;
+}
+
+.dictate-text {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 @keyframes toastLife {
   0% {
     opacity: 0;
@@ -1357,6 +1396,7 @@
   .footer,
   .focus-exit,
   .focus-timer,
+  .dictate-pill,
   .toasts {
     display: none !important;
   }

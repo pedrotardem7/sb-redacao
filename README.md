@@ -30,6 +30,7 @@ Acesse: https://pedrotardem7.github.io/sb-redacao/
 - O botão **Menu** reúne as ações: **modo foco**, **limpar**, **copiar**, **exportar** e **importar** o texto, **cronômetro no celular**, **tema rosa bebê**, **análise por IA** e **imprimir / PDF**.
 - **Exportar** baixa a redação num arquivo `.txt` com o nome que você deu a ela e a data; **importar** carrega um arquivo de volta para a folha (pede confirmação antes de substituir o texto atual).
 - Clique no subtítulo da folha para **nomear a redação** (Enter salva, Esc cancela); o nome aparece na folha, no PDF e no arquivo exportado.
+- **Ditar texto** (Chrome/Edge): fale e o site transcreve na folha, no ponto onde está o cursor. Diga a pontuação em voz alta: "ponto", "vírgula", "nova linha", "novo parágrafo".
 
 ### Modo foco
 - Esconde tudo e deixa só a folha na tela, com o fundo escurecido. Ideal para escrever sem distração.

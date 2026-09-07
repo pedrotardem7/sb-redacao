@@ -114,6 +114,27 @@ function cleanJson(raw) {
   return String(raw ?? '').replace(/^```json\s*/i, '').replace(/\s*```$/, '').trim()
 }
 
+function extractJson(raw) {
+  const t = cleanJson(raw)
+  const s = t.indexOf('{')
+  const e = t.lastIndexOf('}')
+  const slice = s >= 0 && e > s ? t.slice(s, e + 1) : t
+  return JSON.parse(slice)
+}
+
+const VALID_NOTES = [0, 40, 80, 120, 160, 200]
+
+function isValidResult(r) {
+  if (!r || !Array.isArray(r.competencias) || r.competencias.length !== 5) return false
+  return r.competencias.every(
+    (c) =>
+      c &&
+      typeof c.nome === 'string' && c.nome.trim().length > 0 &&
+      VALID_NOTES.includes(Number(c.nota)) &&
+      typeof c.comentario === 'string' && c.comentario.trim().length > 0,
+  )
+}
+
 async function attemptGemini(key, text) {
   const res = await fetch(GEMINI_URL, {
     method: 'POST',
@@ -138,7 +159,7 @@ async function attemptGemini(key, text) {
   const data = await res.json()
   const raw = data.candidates?.[0]?.content?.parts?.[0]?.text
   if (!raw) throw { status: 0, data: {}, retryable: false, message: 'A IA não retornou a análise. Tente novamente.' }
-  return normalizeResult(JSON.parse(cleanJson(raw)))
+  return extractJson(raw)
 }
 
 async function attemptGroq(key, text) {
@@ -155,6 +176,7 @@ async function attemptGroq(key, text) {
         { role: 'user', content: `Redação para corrigir:\n\n${text}` },
       ],
       temperature: 0.3,
+      max_completion_tokens: 2000,
       response_format: { type: 'json_object' },
     }),
   })
@@ -169,7 +191,7 @@ async function attemptGroq(key, text) {
   const data = await res.json()
   const raw = data.choices?.[0]?.message?.content
   if (!raw) throw { status: 0, data: {}, retryable: false, message: 'A IA não retornou a análise. Tente novamente.' }
-  return normalizeResult(JSON.parse(cleanJson(raw)))
+  return extractJson(raw)
 }
 
 function loadKey(name) {
@@ -261,10 +283,19 @@ function AiAnalysis({ essay, open, onClose }) {
     setRetryNote('')
     const attempt = provider === 'groq' ? attemptGroq : attemptGemini
     const waits = [4000, 10000, 20000]
+    let shapeRetries = 0
     for (let i = 0; ; i++) {
       try {
         const parsed = await attempt(savedKey, essay.trim())
-        setResult(parsed)
+        if (!isValidResult(parsed)) {
+          if (shapeRetries < 2) {
+            shapeRetries += 1
+            setRetryNote('Resposta incompleta, pedindo novamente...')
+            continue
+          }
+          throw new Error('A IA retornou uma análise incompleta. Tente novamente.')
+        }
+        setResult(normalizeResult(parsed))
         setStatus('done')
         setRetryNote('')
         return
