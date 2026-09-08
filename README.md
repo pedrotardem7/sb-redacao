@@ -28,13 +28,16 @@ Acesse: https://pedrotardem7.github.io/sb-redacao/
 
 ### Menu
 - O botão **Menu** reúne as ações: **modo foco**, **limpar**, **copiar**, **exportar** e **importar** o texto, **cronômetro no celular**, **tema rosa bebê**, **análise por IA** e **imprimir / PDF**.
-- **Exportar** baixa a redação num arquivo `.txt` com o nome que você deu a ela e a data; **importar** carrega um arquivo de volta para a folha (pede confirmação antes de substituir o texto atual).
+- **Exportar** baixa a redação num arquivo `.txt` com cabeçalho (tema, fonte, tamanho e data) e o nome do arquivo com o tema e a data; **importar** carrega um arquivo de volta para a folha, removendo o cabeçalho automaticamente (pede confirmação antes de substituir o texto atual).
 - Clique no subtítulo da folha para **nomear a redação** (Enter salva, Esc cancela); o nome aparece na folha, no PDF e no arquivo exportado.
 - **Ditar texto** (Chrome/Edge): fale e o site transcreve na folha, no ponto onde está o cursor. Diga a pontuação em voz alta: "ponto", "vírgula", "nova linha", "novo parágrafo". Não funciona no Brave nem no Firefox, que bloqueiam o serviço de transcrição. Se a pílula "Ouvindo..." não mostrar suas palavras, o navegador não está captando áudio — confira microfone e permissão. Pause um instante antes de parar para não perder o final da frase.
 
 ### Modo foco
 - Esconde tudo e deixa só a folha na tela, com o fundo escurecido. Ideal para escrever sem distração.
 - Para sair, clique em **Sair do foco** ou aperte **Esc**.
+
+### ChatGPT flutuante
+- O botão de conversa no canto inferior direito abre o ChatGPT numa janela flutuante por cima do site (se o navegador bloquear o popup, abre em nova aba).
 
 ### Imprimir / PDF
 - Gera uma versão da folha em tamanho A4, igual ao que você vê na tela: mesmo texto, mesmas linhas, em uma única página.

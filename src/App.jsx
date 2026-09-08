@@ -10,6 +10,7 @@ const STORAGE_KEY = 'soph-enem-redacao'
 const THEME_KEY = 'soph-enem-theme'
 const PEER_ID_KEY = 'soph-enem-peer-id'
 const TITLE_KEY = 'soph-enem-titulo'
+const SPELL_KEY = 'soph-enem-spellcheck'
 const PRESETS = [30, 60, 80, 120]
 
 function newPeerId() {
@@ -125,6 +126,16 @@ function IconSparkle() {
   )
 }
 
+function IconSpell() {
+  return (
+    <Ic>
+      <path d="M4 20L9 5l5 15" />
+      <line x1="5.8" y1="15" x2="12.2" y2="15" />
+      <polyline points="15 16 17.5 18.5 22 12" />
+    </Ic>
+  )
+}
+
 function IconDownload() {
   return (
     <Ic>
@@ -186,18 +197,51 @@ function IconPrint() {
   )
 }
 
+function Intro() {
+  const [phase, setPhase] = useState(() =>
+    window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'gone' : 'in',
+  )
+
+  useEffect(() => {
+    if (phase !== 'in') return undefined
+    const t1 = setTimeout(() => setPhase('out'), 1400)
+    const t2 = setTimeout(() => setPhase('gone'), 1900)
+    return () => {
+      clearTimeout(t1)
+      clearTimeout(t2)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  if (phase === 'gone') return null
+
+  return (
+    <div className={`intro ${phase}`} aria-hidden="true">
+      <div className="intro-logo">SB REDAÇÃO</div>
+      <div className="intro-sub">Folha de Redação</div>
+      <div className="intro-bar">
+        <span />
+      </div>
+    </div>
+  )
+}
+
 function App() {
   const params = new URLSearchParams(window.location.search)
   const remotePeerId = params.get('r')
-  if (remotePeerId) {
-    return (
-      <Suspense fallback={<div className="remote-loading">Carregando cronômetro...</div>}>
-        <RemoteTimer peerId={remotePeerId} />
-      </Suspense>
-    )
-  }
 
-  return <Editor />
+  return (
+    <>
+      <Intro />
+      {remotePeerId ? (
+        <Suspense fallback={<div className="remote-loading">Carregando cronômetro...</div>}>
+          <RemoteTimer peerId={remotePeerId} />
+        </Suspense>
+      ) : (
+        <Editor />
+      )}
+    </>
+  )
 }
 
 function Editor() {
@@ -212,6 +256,13 @@ function Editor() {
   const [fs, setFs] = useState(18)
   const [visualLines, setVisualLines] = useState(0)
   const [toasts, setToasts] = useState([])
+  const [spellcheck, setSpellcheck] = useState(() => {
+    try {
+      return localStorage.getItem(SPELL_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
   const [listening, setListening] = useState(false)
   const [interimText, setInterimText] = useState('')
   const recogRef = useRef(null)
@@ -277,6 +328,7 @@ function Editor() {
   const [phoneConnected, setPhoneConnected] = useState(false)
   const peerRef = useRef(null)
   const peerPromiseRef = useRef(null)
+  const chatOpenedAt = useRef(0)
   const connRef = useRef(null)
   const toastId = useRef(0)
   const sendStateRef = useRef(() => {})
@@ -847,12 +899,22 @@ function Editor() {
       .replace(/^-+|-+$/g, '')
       .slice(0, 40) || 'redacao'
 
+  const EXPORT_SEP = '----------------------------------------'
+
   const handleExport = () => {
-    const blob = new Blob(['\uFEFF' + essay], { type: 'text/plain;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
     const d = new Date()
     const p = (n) => String(n).padStart(2, '0')
+    const header = [
+      'SB Redação',
+      `Tema: ${docTitle || 'Sem título'}`,
+      `Fonte: ${cursive ? 'Cursiva' : 'Digitação'} (tamanho ${fs})`,
+      `Data: ${p(d.getDate())}/${p(d.getMonth() + 1)}/${d.getFullYear()} ${p(d.getHours())}:${p(d.getMinutes())}`,
+      EXPORT_SEP,
+      '',
+    ].join('\n')
+    const blob = new Blob(['\uFEFF' + header + essay], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
     a.href = url
     a.download = `${slugify(docTitle)}-${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}.txt`
     document.body.appendChild(a)
@@ -862,11 +924,19 @@ function Editor() {
     pushToast('Redação exportada')
   }
 
+  const stripExportHeader = (text) => {
+    const lines = text.split('\n')
+    if (lines[0]?.trim() !== 'SB Redação') return text
+    const sepIdx = lines.findIndex((l, i) => i > 0 && i < 10 && l.trim() === EXPORT_SEP)
+    if (sepIdx < 0) return text
+    return lines.slice(sepIdx + 1).join('\n').replace(/^\n/, '')
+  }
+
   const handleImport = async (e) => {
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
-    const raw = (await file.text()).replace(/^\uFEFF/, '')
+    const raw = stripExportHeader((await file.text()).replace(/^\uFEFF/, ''))
     if (essay && essay !== raw) {
       if (!window.confirm('Substituir o texto atual pelo conteúdo do arquivo?')) return
     }
@@ -1145,6 +1215,20 @@ function Editor() {
                   <IconUpload />
                   Importar redação
                 </button>
+                <button
+                  className="menu-item"
+                  onClick={() => {
+                    setSpellcheck((v) => {
+                      try {
+                        localStorage.setItem(SPELL_KEY, v ? '0' : '1')
+                      } catch {}
+                      return !v
+                    })
+                  }}
+                >
+                  <IconSpell />
+                  {spellcheck ? '✓ Revisão ortográfica' : 'Revisão ortográfica'}
+                </button>
                 {speechSupported && (
                   <button
                     className="menu-item"
@@ -1262,7 +1346,8 @@ function Editor() {
                 setCaretLine(null)
               }}
               placeholder="Comece a escrever sua redação aqui..."
-              spellCheck="false"
+              spellCheck={spellcheck}
+              lang="pt-BR"
               aria-label="Texto da redação"
             />
           </div>
@@ -1287,6 +1372,33 @@ function Editor() {
           {formatTime(timerValue)}
         </div>
       )}
+
+      <button
+        className="chat-fab"
+        onClick={() => {
+          if (Date.now() - chatOpenedAt.current < 5000) {
+            pushToast('A janela do ChatGPT já está aberta')
+            return
+          }
+          chatOpenedAt.current = Date.now()
+          const url = 'https://chatgpt.com/'
+          const w = window.open(
+            url,
+            'sb-chatgpt',
+            'width=420,height=680,menubar=no,toolbar=no,location=yes,status=no',
+          )
+          if (!w) {
+            chatOpenedAt.current = 0
+            window.open(url, '_blank', 'noopener')
+          }
+        }}
+        title="Abrir ChatGPT em janela flutuante"
+        aria-label="Abrir ChatGPT em janela flutuante"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8z" />
+        </svg>
+      </button>
 
       <div className="toasts" aria-live="polite">
         {toasts.map((t) => (

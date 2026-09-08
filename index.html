@@ -7,7 +7,14 @@
     <meta name="theme-color" content="#0b0e1a" />
     <link rel="icon" type="image/svg+xml" href="./favicon.svg" />
     <link rel="apple-touch-icon" href="./apple-touch-icon.png" />
-    <title>SB Redação — Folha de Redação</title>
+    <title>SB REDAÇÃO</title>
+    <script>
+      try {
+        if (localStorage.getItem('soph-enem-theme') === 'rosa') {
+          document.documentElement.dataset.theme = 'rosa';
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
