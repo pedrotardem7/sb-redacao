@@ -1,4 +1,4 @@
-import { Suspense, lazy, useEffect, useRef, useState } from 'react'
+import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import AiAnalysis from './AiAnalysis.jsx'
 import './App.css'
@@ -230,6 +230,7 @@ function Editor() {
   const cancelTitleRef = useRef(false)
   const [focusMode, setFocusMode] = useState(false)
   const [caretLine, setCaretLine] = useState(null)
+  const [writing, setWriting] = useState(false)
   const [theme, setTheme] = useState(() => {
     try {
       return localStorage.getItem(THEME_KEY) ?? 'padrao'
@@ -238,8 +239,10 @@ function Editor() {
     }
   })
   const areaRef = useRef(null)
-  const measureRef = useRef(null)
   const caretMeasureRef = useRef(null)
+  const lhRef = useRef(28)
+  const lhDirtyRef = useRef(true)
+  const caretRaf = useRef(0)
   const fileRef = useRef(null)
 
   const [timerMode, setTimerMode] = useState('off')
@@ -366,17 +369,28 @@ function Editor() {
   }
 
   useEffect(() => {
-    const el = measureRef.current
-    if (!el) return
-    const lh = parseFloat(getComputedStyle(el).lineHeight)
-    setVisualLines(lh ? Math.max(1, Math.round(el.scrollHeight / lh)) : 1)
-  }, [essay, cursive, fs])
+    remeasureAll()
+  }, [fs, cursive])
+
+  useEffect(() => {
+    let t
+    const onResize = () => {
+      clearTimeout(t)
+      t = setTimeout(() => remeasureAll(), 200)
+    }
+    window.addEventListener('resize', onResize)
+    return () => {
+      window.removeEventListener('resize', onResize)
+      clearTimeout(t)
+    }
+  }, [])
 
   useEffect(() => {
     if (!essay) return
-    const { text, limited } = fitToLimit(essay)
+    const { text, limited, lines } = fitToLimit(essay)
     if (limited) {
       setEssay(text)
+      setVisualLines(Math.max(1, lines))
       pushToast('Texto ajustado ao limite de 30 linhas')
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -571,10 +585,12 @@ function Editor() {
     const needsSpace =
       start > 0 && !/\s/.test(prev[start - 1]) && !/^[\s.,;:!?)"'\n—]/.test(chunk)
     const next = prev.slice(0, start) + (needsSpace ? ' ' : '') + chunk + prev.slice(end)
-    const { text: fitted, limited } = fitToLimit(next)
+    const { text: fitted, limited, lines } = fitToLimit(next)
     if (limited) notifyLimit()
     setEssay(fitted)
+    setVisualLines(Math.max(1, lines))
     const pos = Math.min(start + (needsSpace ? 1 : 0) + chunk.length, fitted.length)
+    syncCaret(fitted, lines, pos)
     requestAnimationFrame(() => {
       try {
         el?.focus()
@@ -665,29 +681,40 @@ function Editor() {
 
   const lastLimitToast = useRef(0)
 
-  const countLines = (text) => {
+  const ensureLineHeight = () => {
+    if (!lhDirtyRef.current) return lhRef.current
+    lhDirtyRef.current = false
+    const mirror = caretMeasureRef.current
+    lhRef.current = mirror ? parseFloat(getComputedStyle(mirror).lineHeight) || 28 : 28
+    return lhRef.current
+  }
+
+  const measureLines = (text) => {
     const mirror = caretMeasureRef.current
     if (!mirror || !text) return 0
+    const lh = ensureLineHeight()
     mirror.textContent = text
-    const lh = parseFloat(getComputedStyle(mirror).lineHeight)
-    if (!lh) return 0
     return Math.max(1, Math.round(mirror.scrollHeight / lh))
   }
 
   const fitToLimit = (text) => {
-    if (countLines(text) <= TOTAL_LINES) return { text, limited: false }
+    const lines = measureLines(text)
+    if (lines <= TOTAL_LINES) return { text, limited: false, lines }
     const mirror = caretMeasureRef.current
-    const lh = parseFloat(getComputedStyle(mirror).lineHeight) || 28
+    const lh = lhRef.current
     let lo = 0
     let hi = text.length
+    let loLines = 1
     while (lo < hi) {
       const mid = (lo + hi + 1) >> 1
       mirror.textContent = text.slice(0, mid)
-      const lines = Math.max(1, Math.round(mirror.scrollHeight / lh))
-      if (lines <= TOTAL_LINES) lo = mid
-      else hi = mid - 1
+      const l = Math.max(1, Math.round(mirror.scrollHeight / lh))
+      if (l <= TOTAL_LINES) {
+        lo = mid
+        loLines = l
+      } else hi = mid - 1
     }
-    return { text: text.slice(0, lo), limited: true }
+    return { text: text.slice(0, lo), limited: true, lines: loLines }
   }
 
   const notifyLimit = () => {
@@ -698,32 +725,75 @@ function Editor() {
     }
   }
 
+  const syncCaret = (text, lines, pos) => {
+    const p = Math.min(pos, text.length)
+    if (!text || p >= text.length) {
+      setCaretLine(!text ? 0 : Math.min(lines - 1, TOTAL_LINES - 1))
+      return
+    }
+    const mirror = caretMeasureRef.current
+    if (!mirror) return
+    ensureLineHeight()
+    mirror.textContent = text.slice(0, p)
+    const idx = Math.round(mirror.scrollHeight / lhRef.current) - 1
+    setCaretLine(idx >= 0 && idx < TOTAL_LINES ? idx : null)
+  }
+
   const handleChange = (e) => {
-    const { text, limited } = fitToLimit(e.target.value)
+    const raw = e.target.value
+    const caretPos = Math.min(e.target.selectionStart ?? raw.length, raw.length)
+    const { text, limited, lines } = fitToLimit(raw)
     if (limited) notifyLimit()
     setEssay(text)
-    updateCaret(text, Math.min(e.target.selectionStart ?? text.length, text.length))
+    setVisualLines(Math.max(1, lines))
+    syncCaret(text, lines, caretPos)
   }
 
   const updateCaret = (text, pos) => {
-    const mirror = caretMeasureRef.current
-    if (!mirror) return
     const slice = text.slice(0, pos)
     if (!slice) {
       setCaretLine(0)
       return
     }
+    const mirror = caretMeasureRef.current
+    if (!mirror) return
+    ensureLineHeight()
     mirror.textContent = slice
-    const lh = parseFloat(getComputedStyle(mirror).lineHeight)
-    if (!lh) return
-    const idx = Math.round(mirror.scrollHeight / lh) - 1
+    const idx = Math.round(mirror.scrollHeight / lhRef.current) - 1
     setCaretLine(idx >= 0 && idx < TOTAL_LINES ? idx : null)
+  }
+
+  const scheduleCaret = () => {
+    if (caretRaf.current) return
+    caretRaf.current = requestAnimationFrame(() => {
+      caretRaf.current = 0
+      const el = areaRef.current
+      if (!el || document.activeElement !== el) return
+      updateCaret(el.value, el.selectionStart ?? 0)
+    })
+  }
+
+  const remeasureAll = () => {
+    lhDirtyRef.current = true
+    const text = essayRef.current
+    if (!text) {
+      setVisualLines(1)
+      return
+    }
+    const lines = measureLines(text)
+    setVisualLines(Math.max(1, lines))
+    const el = areaRef.current
+    if (el && document.activeElement === el) {
+      syncCaret(text, lines, el.selectionStart ?? text.length)
+    }
   }
 
   const handleClear = () => {
     if (essay && !window.confirm('Apagar toda a redação?')) return
     const had = essay.length > 0
     setEssay('')
+    setVisualLines(1)
+    setCaretLine(0)
     areaRef.current?.focus()
     if (had) pushToast('Texto apagado')
   }
@@ -800,8 +870,10 @@ function Editor() {
     if (essay && essay !== raw) {
       if (!window.confirm('Substituir o texto atual pelo conteúdo do arquivo?')) return
     }
-    const { text, limited } = fitToLimit(raw)
+    const { text, limited, lines } = fitToLimit(raw)
     setEssay(text)
+    setVisualLines(Math.max(1, lines))
+    syncCaret(text, lines, text.length)
     areaRef.current?.focus()
     pushToast(limited ? 'Texto ajustado ao limite de 30 linhas' : 'Redação importada')
   }
@@ -879,8 +951,29 @@ function Editor() {
     preset: setPresetFrom,
     focus: setFocusMode,
     font: setCursive,
-    fontsize: (v) => setFs(Math.max(12, Math.min(28, Number.isFinite(v) ? v : 18))),
+    fontsize: (v) => setFs(Math.max(8, Math.min(28, Number.isFinite(v) ? v : 18))),
   }
+
+  const linesEl = useMemo(
+    () =>
+      NUMBERS.map((n, i) => (
+        <div className={`line${i === caretLine ? ' active' : ''}`} key={n}>
+          <div className="line-num">
+            {i === 0 ? (
+              <span className="num-label">
+                TEXTO
+                <br />
+                DEFINITIVO
+              </span>
+            ) : (
+              n
+            )}
+          </div>
+          <div className="line-text" />
+        </div>
+      )),
+    [caretLine],
+  )
 
   useEffect(() => {
     if (!focusMode) return
@@ -892,7 +985,7 @@ function Editor() {
   }, [focusMode])
 
   return (
-    <div className={`app ${focusMode ? 'focus-mode' : ''}`}>
+    <div className={`app${focusMode ? ' focus-mode' : ''}${writing ? ' writing' : ''}`}>
       <div className="background" />
       <div className="blobs">
         <div className="blob blob-1" />
@@ -1007,7 +1100,7 @@ function Editor() {
             </button>
           </div>
           <div className="segmented" title="Tamanho do texto">
-            <button onClick={() => setFs((v) => Math.max(12, v - 1))}>A−</button>
+            <button onClick={() => setFs((v) => Math.max(8, v - 1))}>A−</button>
             <span className="fs-val">{fs}</span>
             <button onClick={() => setFs((v) => Math.min(28, v + 1))}>A+</button>
           </div>
@@ -1144,27 +1237,9 @@ function Editor() {
 
           <div className="writing-area">
             <div className="lines">
-              {NUMBERS.map((n, i) => (
-                <div className={`line${i === caretLine ? ' active' : ''}`} key={n}>
-                  <div className="line-num">
-                    {i === 0 ? (
-                      <span className="num-label">TEXTO<br />DEFINITIVO</span>
-                    ) : (
-                      n
-                    )}
-                  </div>
-                  <div className="line-text" />
-                </div>
-              ))}
+              {linesEl}
             </div>
             {essay === '' && <span className="caret" aria-hidden="true" />}
-            <div
-              ref={measureRef}
-              className={`line-measure ${cursive ? 'cursive' : ''}`}
-              aria-hidden="true"
-            >
-              {essay}
-            </div>
             <div
               ref={caretMeasureRef}
               className={`line-measure ${cursive ? 'cursive' : ''}`}
@@ -1175,11 +1250,17 @@ function Editor() {
               className={`typing ${cursive ? 'cursive' : ''}`}
               value={essay}
               onChange={handleChange}
-              onSelect={(e) => updateCaret(e.target.value, e.target.selectionStart ?? 0)}
-              onClick={(e) => updateCaret(e.target.value, e.target.selectionStart ?? 0)}
-              onKeyUp={(e) => updateCaret(e.target.value, e.target.selectionStart ?? 0)}
-              onFocus={(e) => updateCaret(e.target.value, e.target.selectionStart ?? 0)}
-              onBlur={() => setCaretLine(null)}
+              onSelect={scheduleCaret}
+              onClick={scheduleCaret}
+              onKeyUp={scheduleCaret}
+              onFocus={(e) => {
+                setWriting(true)
+                updateCaret(e.target.value, e.target.selectionStart ?? 0)
+              }}
+              onBlur={() => {
+                setWriting(false)
+                setCaretLine(null)
+              }}
               placeholder="Comece a escrever sua redação aqui..."
               spellCheck="false"
               aria-label="Texto da redação"
