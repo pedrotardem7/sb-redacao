@@ -11,6 +11,8 @@ const THEME_KEY = 'soph-enem-theme'
 const PEER_ID_KEY = 'soph-enem-peer-id'
 const TITLE_KEY = 'soph-enem-titulo'
 const SPELL_KEY = 'soph-enem-spellcheck'
+const FS_KEY = 'soph-enem-fs'
+const FONT_KEY = 'soph-enem-font'
 const PRESETS = [30, 60, 80, 120]
 
 function newPeerId() {
@@ -252,8 +254,30 @@ function Editor() {
       return ''
     }
   })
-  const [cursive, setCursive] = useState(false)
-  const [fs, setFs] = useState(18)
+  const [cursive, setCursive] = useState(() => {
+    try {
+      return localStorage.getItem(FONT_KEY) === '1'
+    } catch {
+      return false
+    }
+  })
+  const [fs, setFs] = useState(() => {
+    try {
+      const v = Number(localStorage.getItem(FS_KEY))
+      return Number.isFinite(v) && localStorage.getItem(FS_KEY) !== null
+        ? Math.max(8, Math.min(28, v))
+        : 18
+    } catch {
+      return 18
+    }
+  })
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(FONT_KEY, cursive ? '1' : '0')
+      localStorage.setItem(FS_KEY, String(fs))
+    } catch {}
+  }, [cursive, fs])
   const [visualLines, setVisualLines] = useState(0)
   const [toasts, setToasts] = useState([])
   const [spellcheck, setSpellcheck] = useState(() => {
