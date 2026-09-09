@@ -4,9 +4,8 @@ const GEMINI_KEY_STORAGE = 'soph-enem-gemini-key'
 const GROQ_KEY_STORAGE = 'soph-enem-groq-key'
 const PROVIDER_STORAGE = 'soph-enem-ai-provider'
 
-const GEMINI_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.6-flash']
-const geminiUrl = (model) =>
-  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
+const GEMINI_MODEL = 'gemini-3.5-flash-lite'
+const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`
 const GROQ_MODEL = 'openai/gpt-oss-120b'
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
@@ -65,17 +64,19 @@ const SYSTEM_PROMPT = `Você é um corretor experiente de redações dissertativ
 
 ESCALA (cada competência): 0, 40, 80, 120, 160 ou 200.
 
-COMPETÊNCIA 1 — Norma culta: 200 só com zero a pouquíssimos desvios pontuais em todo o texto. Cada erro de ortografia, concordância, regência, pontuação ou crase conta. Cite cada desvio encontrado.
+COMPETÊNCIA 1 — Norma culta: os DOIS PRIMEIROS desvios de português NÃO descontam pontos (tolere até 2 desvios leves sem penalizar). A penalização começa SOMENTE a partir do TERCEIRO desvio, reduzindo o nível conforme a quantidade e a gravidade (ortografia, concordância, regência, pontuação, crase). Numere cada desvio encontrado (1º, 2º, 3º...) e indique claramente a partir de qual deles começou o desconto.
 
 COMPETÊNCIA 2 — Tema e repertório: 200 só se o repertório for LEGÍTIMO, PERTINENTE e PRODUTIVO (desenvolvido a serviço do argumento). Mencionar nomes ou dados sem desenvolver, repertório decorativo, genérico ou chavões ("nos dias atuais", "desde os primórdios") limita a 120–160. Tangenciar o tema derruba a nota.
 
 COMPETÊNCIA 3 — Argumentação: tese clara e ponto de vista defendido do início ao fim. Argumentos incompletos, contraditórios ou abandonados no meio do texto derrubam para 120 ou menos. Enrolação sem progressão de ideias não pontua.
 
-COMPETÊNCIA 4 — Coesão: repertório VARIADO de conectivos bem empregados. Repetir os mesmos conectivos ("além disso", "portanto", "dessa forma") várias vezes limita a 120–160. Falhas de articulação entre parágrafos derrubam mais.
+COMPETÊNCIA 4 — Coesão: NÃO se restringe a conectivos marcados — avalie também as formas de retomada: pronomes demonstrativos bem encaixados (esse, essa, isso, tal...), sinônimos, elipses e frases que promovam o fluxo do raciocínio entre períodos e parágrafos. Exija repertório VARIADO de conectivos; repetir os mesmos ("além disso", "portanto", "dessa forma") várias vezes limita a 120–160. Falhas de articulação entre parágrafos derrubam mais.
 
-COMPETÊNCIA 5 — Intervenção: 200 só com os 5 elementos ARTICULADOS ao texto — agente, ação, meio/modo, efeito/finalidade e detalhamento de um deles — e sem desrespeito aos direitos humanos. Proposta vaga ou genérica: 80–120. Falta de detalhamento: máximo 160. Qualquer desrespeito aos direitos humanos zera a redação (todas as notas 0).
+COMPETÊNCIA 5 — Intervenção: 200 só com TODOS os 5 elementos (agente, ação, meio/modo, efeito/finalidade e detalhamento) presentes em PELO MENOS UMA das propostas, e PELO MENOS DOIS deles nas demais — independente da ordem (a mais desenvolvida pode estar no D1 ou no D2). Todos articulados ao texto e sem desrespeito aos direitos humanos. A falta e/ou o mau desenvolvimento dos elementos são penalizados. Proposta vaga ou genérica: 80–120. Qualquer desrespeito aos direitos humanos zera a redação (todas as notas 0).
 
-REGRAS: para cada competência, transcreva entre aspas o trecho exato que sustenta a nota OU a falha que tirou pontos. Sem evidência citada, não dê 200. Seja específico e direto, sem elogio vazio. Responda SOMENTE com o JSON, sem markdown nem explicações fora dele, em português: comentários de 1 a 2 frases (incluindo a evidência citada), até 3 pontos fortes, até 3 pontos a melhorar e resumo de 2 frases. A nota total é a soma das 5 competências.`
+CONSISTÊNCIA ENTRE ANÁLISES: use sempre exatamente estes mesmos critérios, sem inventar novos problemas a cada correção. Se o texto corrigiu o que foi apontado antes, reconheça a correção e mantenha ou eleve a nota — não aponte outros defeitos no mesmo ponto já resolvido. Nunca penalize duas vezes o mesmo erro. Textos iguais ou melhorados devem receber notas estáveis e coerentes.
+
+REGRAS: para cada competência, transcreva entre aspas o trecho exato que sustenta a nota OU a falha que tirou pontos. Sem evidência citada, não dê 200. NÃO invente falhas: só aponte o que existir literalmente no texto. Texto sem falhas recebe 200. Seja específico e direto, sem elogio vazio. Responda SOMENTE com o JSON, sem markdown nem explicações fora dele, em português: comentários de 1 a 2 frases (incluindo a evidência citada), até 3 pontos fortes, até 3 pontos a melhorar e resumo de 2 frases. A nota total é a soma das 5 competências.`
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms))
 
@@ -136,8 +137,8 @@ function isValidResult(r) {
   )
 }
 
-async function callGeminiModel(model, key, text) {
-  const res = await fetch(geminiUrl(model), {
+async function attemptGemini(key, text) {
+  const res = await fetch(GEMINI_URL, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -147,7 +148,7 @@ async function callGeminiModel(model, key, text) {
       system_instruction: { parts: [{ text: SYSTEM_PROMPT }] },
       contents: [{ parts: [{ text: `Redação para corrigir:\n\n${text}` }] }],
       generationConfig: {
-        temperature: 0.3,
+        temperature: 0,
         responseMimeType: 'application/json',
         responseSchema: SCHEMA,
       },
@@ -160,23 +161,7 @@ async function callGeminiModel(model, key, text) {
   const data = await res.json()
   const raw = data.candidates?.[0]?.content?.parts?.[0]?.text
   if (!raw) throw { status: 0, data: {}, retryable: false, message: 'A IA não retornou a análise. Tente novamente.' }
-  return extractJson(raw)
-}
-
-async function attemptGemini(key, text) {
-  let lastErr = null
-  for (const model of GEMINI_MODELS) {
-    try {
-      return { data: await callGeminiModel(model, key, text), model }
-    } catch (e) {
-      lastErr = e
-      if (e?.status === 400 || e?.status === 404 || e?.status === 429 || e?.status === 503) {
-        continue
-      }
-      throw e
-    }
-  }
-  throw lastErr
+  return { data: extractJson(raw), model: GEMINI_MODEL }
 }
 
 async function checkGeminiKey(key) {
@@ -206,7 +191,7 @@ async function attemptGroq(key, text) {
         { role: 'system', content: SYSTEM_PROMPT },
         { role: 'user', content: `Redação para corrigir:\n\n${text}` },
       ],
-      temperature: 0.3,
+      temperature: 0,
       max_completion_tokens: 2000,
       response_format: { type: 'json_object' },
     }),
