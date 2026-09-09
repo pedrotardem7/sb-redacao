@@ -4,8 +4,9 @@ const GEMINI_KEY_STORAGE = 'soph-enem-gemini-key'
 const GROQ_KEY_STORAGE = 'soph-enem-groq-key'
 const PROVIDER_STORAGE = 'soph-enem-ai-provider'
 
-const GEMINI_MODEL = 'gemini-3.6-flash'
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`
+const GEMINI_MODELS = ['gemini-3.5-flash-lite', 'gemini-3.6-flash']
+const geminiUrl = (model) =>
+  `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`
 const GROQ_MODEL = 'openai/gpt-oss-120b'
 const GROQ_URL = 'https://api.groq.com/openai/v1/chat/completions'
 
@@ -135,8 +136,8 @@ function isValidResult(r) {
   )
 }
 
-async function attemptGemini(key, text) {
-  const res = await fetch(GEMINI_URL, {
+async function callGeminiModel(model, key, text) {
+  const res = await fetch(geminiUrl(model), {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -160,6 +161,36 @@ async function attemptGemini(key, text) {
   const raw = data.candidates?.[0]?.content?.parts?.[0]?.text
   if (!raw) throw { status: 0, data: {}, retryable: false, message: 'A IA não retornou a análise. Tente novamente.' }
   return extractJson(raw)
+}
+
+async function attemptGemini(key, text) {
+  let lastErr = null
+  for (const model of GEMINI_MODELS) {
+    try {
+      return { data: await callGeminiModel(model, key, text), model }
+    } catch (e) {
+      lastErr = e
+      if (e?.status === 400 || e?.status === 404 || e?.status === 429 || e?.status === 503) {
+        continue
+      }
+      throw e
+    }
+  }
+  throw lastErr
+}
+
+async function checkGeminiKey(key) {
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(key)}`,
+  )
+  if (!res.ok) throw { status: res.status }
+}
+
+async function checkGroqKey(key) {
+  const res = await fetch('https://api.groq.com/openai/v1/models', {
+    headers: { Authorization: `Bearer ${key}` },
+  })
+  if (!res.ok) throw { status: res.status }
 }
 
 async function attemptGroq(key, text) {
@@ -191,7 +222,7 @@ async function attemptGroq(key, text) {
   const data = await res.json()
   const raw = data.choices?.[0]?.message?.content
   if (!raw) throw { status: 0, data: {}, retryable: false, message: 'A IA não retornou a análise. Tente novamente.' }
-  return extractJson(raw)
+  return { data: extractJson(raw), model: GROQ_MODEL }
 }
 
 function loadKey(name) {
@@ -217,8 +248,11 @@ function AiAnalysis({ essay, open, onClose }) {
   const [key, setKey] = useState('')
   const [status, setStatus] = useState('idle')
   const [result, setResult] = useState(null)
+  const [usedModel, setUsedModel] = useState('')
   const [error, setError] = useState('')
   const [retryNote, setRetryNote] = useState('')
+  const [validating, setValidating] = useState(false)
+  const [keyMsg, setKeyMsg] = useState(null)
 
   const info = PROVIDERS[provider] ?? PROVIDERS.gemini
   const savedKey = keys[provider] ?? ''
@@ -242,9 +276,29 @@ function AiAnalysis({ essay, open, onClose }) {
     setProvider(id)
     setResult(null)
     setError('')
+    setKeyMsg(null)
     try {
       localStorage.setItem(PROVIDER_STORAGE, id)
     } catch {}
+  }
+
+  const validateKey = async () => {
+    if (!savedKey || validating) return
+    setValidating(true)
+    setKeyMsg(null)
+    try {
+      if (provider === 'groq') await checkGroqKey(savedKey)
+      else await checkGeminiKey(savedKey)
+      setKeyMsg({ ok: true, text: 'Chave válida e funcionando.' })
+    } catch (e) {
+      const status = typeof e?.status === 'number' ? e.status : 0
+      setKeyMsg({
+        ok: false,
+        text: status ? friendlyError(status, {}, provider) : 'Falha de conexão. Verifique a internet.',
+      })
+    } finally {
+      setValidating(false)
+    }
   }
 
   const saveKey = () => {
@@ -280,13 +334,14 @@ function AiAnalysis({ essay, open, onClose }) {
     setStatus('loading')
     setError('')
     setResult(null)
+    setUsedModel('')
     setRetryNote('')
     const attempt = provider === 'groq' ? attemptGroq : attemptGemini
     const waits = [4000, 10000, 20000]
     let shapeRetries = 0
     for (let i = 0; ; i++) {
       try {
-        const parsed = await attempt(savedKey, essay.trim())
+        const { data: parsed, model: used } = await attempt(savedKey, essay.trim())
         if (!isValidResult(parsed)) {
           if (shapeRetries < 2) {
             shapeRetries += 1
@@ -296,6 +351,7 @@ function AiAnalysis({ essay, open, onClose }) {
           throw new Error('A IA retornou uma análise incompleta. Tente novamente.')
         }
         setResult(normalizeResult(parsed))
+        setUsedModel(used)
         setStatus('done')
         setRetryNote('')
         return
@@ -363,8 +419,16 @@ function AiAnalysis({ essay, open, onClose }) {
           <>
             <div className="ai-key-saved">
               <span>Chave {info.label} salva: ••••{savedKey.slice(-4)}</span>
-              <button className="link-btn" onClick={removeKey}>Remover</button>
+              <div className="ai-key-actions">
+                <button className="icon-btn ai-key-btn" onClick={validateKey} disabled={validating}>
+                  {validating ? 'Validando...' : 'Validar'}
+                </button>
+                <button className="link-btn" onClick={removeKey}>Remover</button>
+              </div>
             </div>
+            {keyMsg && (
+              <div className={keyMsg.ok ? 'ai-ok' : 'ai-error'}>{keyMsg.text}</div>
+            )}
             <button
               className="btn btn-primary btn-big"
               onClick={analyze}
@@ -387,6 +451,7 @@ function AiAnalysis({ essay, open, onClose }) {
               <span>{result.nota_total}</span>
               <small>/ 1000</small>
             </div>
+            {usedModel && <p className="ai-model">Modelo: {usedModel}</p>}
             {result.resumo && <p className="ai-resumo">{result.resumo}</p>}
             <div className="ai-comps">
               {(result.competencias ?? []).map((c) => (
