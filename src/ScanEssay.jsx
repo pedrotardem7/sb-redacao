@@ -88,6 +88,7 @@ function ScanEssay({ open, onClose, onInsert, hasText }) {
   const videoRef = useRef(null)
   const streamRef = useRef(null)
   const fileRef = useRef(null)
+  const galleryRef = useRef(null)
 
   const stopCamera = () => {
     try {
@@ -220,7 +221,7 @@ function ScanEssay({ open, onClose, onInsert, hasText }) {
       <div className="modal modal-ai">
         <h3>Escanear redação</h3>
         <p className="modal-desc">
-          Tire uma foto da sua folha e eu transcrevo o texto para cá usando o Gemini.
+          Tire uma foto, use a câmera ao vivo ou escolha da galeria e eu transcrevo o texto para cá usando o Gemini.
         </p>
 
         {!apiKey ? (
@@ -250,7 +251,7 @@ function ScanEssay({ open, onClose, onInsert, hasText }) {
                   <video ref={videoRef} className="scan-video" playsInline muted autoPlay />
                 ) : (
                   <div className="scan-placeholder">
-                    {cameraError || 'Nenhuma foto ainda. Ative a câmera ou envie uma foto.'}
+                    {cameraError || 'Nenhuma foto ainda. Ative a câmera, tire uma foto ou escolha da galeria.'}
                   </div>
                 )}
                 <div className="scan-actions">
@@ -264,7 +265,10 @@ function ScanEssay({ open, onClose, onInsert, hasText }) {
                     </button>
                   )}
                   <button className="icon-btn" onClick={() => fileRef.current?.click()}>
-                    Tirar foto / Enviar
+                    Tirar foto
+                  </button>
+                  <button className="icon-btn" onClick={() => galleryRef.current?.click()}>
+                    Escolher da galeria
                   </button>
                 </div>
                 {cameraOn && (
@@ -333,6 +337,13 @@ function ScanEssay({ open, onClose, onInsert, hasText }) {
           type="file"
           accept="image/*"
           capture="environment"
+          style={{ display: 'none' }}
+          onChange={handleFile}
+        />
+        <input
+          ref={galleryRef}
+          type="file"
+          accept="image/*"
           style={{ display: 'none' }}
           onChange={handleFile}
         />
