@@ -1580,15 +1580,19 @@
   }
 
   .sheet {
-    --line-h: 28px;
-    --num-w: 56px;
-    --pad-x: 36px;
-    --total-h: 840px;
-    width: 720px;
+    /* Mesmas medidas da tela, convertidas para mm (96dpi: 1mm = 3.7795px)
+       para o PDF sair no tamanho físico real e com as mesmas quebras de linha.
+       Base: 720px -> 190.5mm, 36px -> 9.53mm, 56px -> 14.82mm,
+       28px -> 7.41mm, 840px -> 222.25mm */
+    --line-h: 7.41mm;
+    --num-w: 14.82mm;
+    --pad-x: 9.53mm;
+    --total-h: 222.25mm;
+    width: 190.5mm;
     margin: 0 auto;
     border-radius: 0;
     box-shadow: none;
-    padding: 18px var(--pad-x) 16px;
+    padding: 4.76mm var(--pad-x) 4.23mm;
     overflow: visible;
     height: auto;
   }
