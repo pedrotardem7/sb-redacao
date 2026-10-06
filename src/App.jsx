@@ -1,6 +1,7 @@
 import { Suspense, lazy, useEffect, useMemo, useRef, useState } from 'react'
 import { flushSync } from 'react-dom'
 import AiAnalysis from './AiAnalysis.jsx'
+import ScanEssay from './ScanEssay.jsx'
 import './App.css'
 
 const RemoteTimer = lazy(() => import('./RemoteTimer.jsx'))
@@ -168,6 +169,15 @@ function IconMic() {
   )
 }
 
+function IconCamera() {
+  return (
+    <Ic>
+      <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z" />
+      <circle cx="12" cy="13" r="4" />
+    </Ic>
+  )
+}
+
 const SPOKEN_PUNCT = [
   [/ponto final/gi, '.'],
   [/ponto de interrogação/gi, '?'],
@@ -328,6 +338,7 @@ function Editor() {
   const [timerOpen, setTimerOpen] = useState(false)
   const [menuOpen, setMenuOpen] = useState(false)
   const [aiOpen, setAiOpen] = useState(false)
+  const [scanOpen, setScanOpen] = useState(false)
   const [timedOut, setTimedOut] = useState(false)
   const startRef = useRef(0)
   const endRef = useRef(0)
@@ -972,6 +983,21 @@ function Editor() {
     pushToast(limited ? 'Texto ajustado ao limite de 30 linhas' : 'Redação importada')
   }
 
+  const handleScanInsert = (scannedText, mode = 'replace') => {
+    const clean = String(scannedText ?? '').replace(/^\uFEFF/, '').trim()
+    if (!clean) {
+      pushToast('Nada para inserir')
+      return
+    }
+    const next = mode === 'append' && essay ? `${essay.trimEnd()}\n\n${clean}` : clean
+    const { text, limited, lines } = fitToLimit(next)
+    setEssay(text)
+    setVisualLines(Math.max(1, lines))
+    syncCaret(text, lines, text.length)
+    areaRef.current?.focus()
+    pushToast(limited ? 'Foto transcrita e ajustada a 30 linhas' : 'Foto transcrita para a folha')
+  }
+
   const switchTimerMode = (m) => {
     setTimerRunning(false)
     setTimedOut(false)
@@ -1265,6 +1291,14 @@ function Editor() {
                 )}
                 <button
                   className="menu-item"
+                  title="Tire uma foto da folha e transcreva com IA"
+                  onClick={() => { setMenuOpen(false); setScanOpen(true); }}
+                >
+                  <IconCamera />
+                  Escanear redação
+                </button>
+                <button
+                  className="menu-item"
                   onClick={() => { setMenuOpen(false); openQr(); }}
                 >
                   <IconQr />
@@ -1445,6 +1479,13 @@ function Editor() {
       )}
 
       <AiAnalysis essay={essay} open={aiOpen} onClose={() => setAiOpen(false)} />
+
+      <ScanEssay
+        open={scanOpen}
+        onClose={() => setScanOpen(false)}
+        onInsert={handleScanInsert}
+        hasText={essay.trim().length > 0}
+      />
 
       <input
         ref={fileRef}

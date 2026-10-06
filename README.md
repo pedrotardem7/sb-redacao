@@ -27,7 +27,7 @@ Acesse: https://pedrotardem7.github.io/sb-redacao/
 - O link do celular continua valendo mesmo se você recarregar a página do computador, e ele reconecta sozinho se a conexão cair.
 
 ### Menu
-- O botão **Menu** reúne as ações: **modo foco**, **limpar**, **copiar**, **exportar** e **importar** o texto, **cronômetro no celular**, **tema rosa bebê**, **análise por IA** e **imprimir / PDF**.
+- O botão **Menu** reúne as ações: **modo foco**, **limpar**, **copiar**, **exportar** e **importar** o texto, **ditar**, **escanear redação**, **cronômetro no celular**, **tema rosa bebê**, **análise por IA** e **imprimir / PDF**.
 - **Exportar** baixa a redação num arquivo `.txt` com cabeçalho (tema, fonte, tamanho e data) e o nome do arquivo com o tema e a data; **importar** carrega um arquivo de volta para a folha, removendo o cabeçalho automaticamente (pede confirmação antes de substituir o texto atual).
 - Clique no subtítulo da folha para **nomear a redação** (Enter salva, Esc cancela); o nome aparece na folha, no PDF e no arquivo exportado.
 - **Ditar texto** (Chrome/Edge): fale e o site transcreve na folha, no ponto onde está o cursor. Diga a pontuação em voz alta: "ponto", "vírgula", "nova linha", "novo parágrafo". Não funciona no Brave nem no Firefox, que bloqueiam o serviço de transcrição. Se a pílula "Ouvindo..." não mostrar suas palavras, o navegador não está captando áudio — confira microfone e permissão. Pause um instante antes de parar para não perder o final da frase.
@@ -47,6 +47,10 @@ Acesse: https://pedrotardem7.github.io/sb-redacao/
 - No menu, a opção **Análise por IA** corrige sua redação por 5 competências e dá uma nota estimada de 0 a 1000, com pontos fortes e o que melhorar.
 - Você escolhe o provedor e cola sua **própria chave gratuita**: **Google Gemini** (pegue em aistudio.google.com) ou **Groq** (pegue em console.groq.com, sem cartão — costuma responder bem mais rápido). A chave fica salva só no seu navegador e a cota gratuita é sua — o site não paga nem recebe nada.
 - É uma estimativa para estudo, não a nota oficial.
+
+### Escanear redação (opcional)
+- No menu, a opção **Escanear redação** tira foto da sua folha de papel e transcreve o texto para a folha digital usando o Gemini Vision.
+- Usa a mesma chave gratuita do Google Gemini da Análise por IA, salva só no seu navegador. Dica: boa luz e foto de cima melhoram a leitura da letra.
 
 ## Dicas de treino
 - Treine com o temporizador em **80 minutos**, um tempo comum para treinar redação.
