@@ -1400,6 +1400,7 @@
   position: relative;
   border: 2px solid #c8102e;
   border-radius: 2px;
+  min-height: var(--total-h);
   transition: border-color 0.25s ease, box-shadow 0.25s ease;
 }
 
@@ -1481,6 +1482,25 @@
   color: #6d5df6;
 }
 
+.line.extra .line-text {
+  background: rgba(200, 16, 46, 0.07);
+}
+
+.line.extra .line-num {
+  color: #c8102e;
+  background: #fdeef1;
+}
+
+.stat.over strong {
+  color: var(--accent);
+}
+
+.warning-over {
+  border-color: rgba(200, 16, 46, 0.5);
+  background: rgba(200, 16, 46, 0.12);
+  color: #ffd3e0;
+}
+
 .line:last-child .line-text {
   border-bottom: none;
 }
@@ -1490,7 +1510,8 @@
   top: 0;
   left: var(--num-w);
   right: 4px;
-  height: var(--total-h);
+  height: 100%;
+  min-height: var(--total-h);
   border: none;
   background: transparent;
   outline: none;
@@ -1569,11 +1590,21 @@
     box-shadow: none;
     padding: 18px var(--pad-x) 16px;
     overflow: visible;
-    page-break-inside: avoid;
+    height: auto;
+  }
+
+  .writing-area {
+    min-height: var(--total-h);
+    height: auto;
   }
 
   .typing {
     overflow: hidden;
+    height: 100%;
+  }
+
+  .line.extra .line-text {
+    background: none;
   }
 
   .typing::placeholder {

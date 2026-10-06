@@ -473,13 +473,12 @@ function Editor() {
   }, [])
 
   useEffect(() => {
-    if (!essay) return
-    const { text, limited, lines } = fitToLimit(essay)
-    if (limited) {
-      setEssay(text)
-      setVisualLines(Math.max(1, lines))
-      pushToast('Texto ajustado ao limite de 30 linhas')
+    if (!essay) {
+      setVisualLines(1)
+      return
     }
+    const lines = measureLines(essay)
+    setVisualLines(Math.max(1, lines))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -672,12 +671,12 @@ function Editor() {
     const needsSpace =
       start > 0 && !/\s/.test(prev[start - 1]) && !/^[\s.,;:!?)"'\n—]/.test(chunk)
     const next = prev.slice(0, start) + (needsSpace ? ' ' : '') + chunk + prev.slice(end)
-    const { text: fitted, limited, lines } = fitToLimit(next)
-    if (limited) notifyLimit()
-    setEssay(fitted)
+    const lines = measureLines(next) || 1
+    if (lines > TOTAL_LINES) notifyOver(lines)
+    setEssay(next)
     setVisualLines(Math.max(1, lines))
-    const pos = Math.min(start + (needsSpace ? 1 : 0) + chunk.length, fitted.length)
-    syncCaret(fitted, lines, pos)
+    const pos = Math.min(start + (needsSpace ? 1 : 0) + chunk.length, next.length)
+    syncCaret(next, lines, pos)
     requestAnimationFrame(() => {
       try {
         el?.focus()
@@ -784,38 +783,18 @@ function Editor() {
     return Math.max(1, Math.round(mirror.scrollHeight / lh))
   }
 
-  const fitToLimit = (text) => {
-    const lines = measureLines(text)
-    if (lines <= TOTAL_LINES) return { text, limited: false, lines }
-    const mirror = caretMeasureRef.current
-    const lh = lhRef.current
-    let lo = 0
-    let hi = text.length
-    let loLines = 1
-    while (lo < hi) {
-      const mid = (lo + hi + 1) >> 1
-      mirror.textContent = text.slice(0, mid)
-      const l = Math.max(1, Math.round(mirror.scrollHeight / lh))
-      if (l <= TOTAL_LINES) {
-        lo = mid
-        loLines = l
-      } else hi = mid - 1
-    }
-    return { text: text.slice(0, lo), limited: true, lines: loLines }
-  }
-
-  const notifyLimit = () => {
+  const notifyOver = (lines) => {
     const now = Date.now()
-    if (now - lastLimitToast.current > 2500) {
+    if (now - lastLimitToast.current > 4000) {
       lastLimitToast.current = now
-      pushToast('Limite de 30 linhas atingido')
+      pushToast(`Passou do limite: ${lines}/30 linhas — nada foi cortado`)
     }
   }
 
   const syncCaret = (text, lines, pos) => {
     const p = Math.min(pos, text.length)
     if (!text || p >= text.length) {
-      setCaretLine(!text ? 0 : Math.min(lines - 1, TOTAL_LINES - 1))
+      setCaretLine(!text ? 0 : Math.max(0, lines - 1))
       return
     }
     const mirror = caretMeasureRef.current
@@ -823,17 +802,17 @@ function Editor() {
     ensureLineHeight()
     mirror.textContent = text.slice(0, p)
     const idx = Math.round(mirror.scrollHeight / lhRef.current) - 1
-    setCaretLine(idx >= 0 && idx < TOTAL_LINES ? idx : null)
+    setCaretLine(idx >= 0 ? idx : null)
   }
 
   const handleChange = (e) => {
     const raw = e.target.value
     const caretPos = Math.min(e.target.selectionStart ?? raw.length, raw.length)
-    const { text, limited, lines } = fitToLimit(raw)
-    if (limited) notifyLimit()
-    setEssay(text)
+    const lines = measureLines(raw) || 1
+    if (lines > TOTAL_LINES) notifyOver(lines)
+    setEssay(raw)
     setVisualLines(Math.max(1, lines))
-    syncCaret(text, lines, caretPos)
+    syncCaret(raw, lines, caretPos)
   }
 
   const updateCaret = (text, pos) => {
@@ -847,7 +826,7 @@ function Editor() {
     ensureLineHeight()
     mirror.textContent = slice
     const idx = Math.round(mirror.scrollHeight / lhRef.current) - 1
-    setCaretLine(idx >= 0 && idx < TOTAL_LINES ? idx : null)
+    setCaretLine(idx >= 0 ? idx : null)
   }
 
   const scheduleCaret = () => {
@@ -975,12 +954,12 @@ function Editor() {
     if (essay && essay !== raw) {
       if (!window.confirm('Substituir o texto atual pelo conteúdo do arquivo?')) return
     }
-    const { text, limited, lines } = fitToLimit(raw)
-    setEssay(text)
+    const lines = measureLines(raw) || 1
+    setEssay(raw)
     setVisualLines(Math.max(1, lines))
-    syncCaret(text, lines, text.length)
+    syncCaret(raw, lines, raw.length)
     areaRef.current?.focus()
-    pushToast(limited ? 'Texto ajustado ao limite de 30 linhas' : 'Redação importada')
+    pushToast(lines > TOTAL_LINES ? `Importado com ${lines}/30 linhas — passou do limite` : 'Redação importada')
   }
 
   const handleScanInsert = (scannedText, mode = 'replace') => {
@@ -990,12 +969,12 @@ function Editor() {
       return
     }
     const next = mode === 'append' && essay ? `${essay.trimEnd()}\n\n${clean}` : clean
-    const { text, limited, lines } = fitToLimit(next)
-    setEssay(text)
+    const lines = measureLines(next) || 1
+    setEssay(next)
     setVisualLines(Math.max(1, lines))
-    syncCaret(text, lines, text.length)
+    syncCaret(next, lines, next.length)
     areaRef.current?.focus()
-    pushToast(limited ? 'Foto transcrita e ajustada a 30 linhas' : 'Foto transcrita para a folha')
+    pushToast(lines > TOTAL_LINES ? `Foto transcrita: ${lines}/30 linhas — passou do limite` : 'Foto transcrita para a folha')
   }
 
   const switchTimerMode = (m) => {
@@ -1074,25 +1053,32 @@ function Editor() {
     fontsize: (v) => setFs(Math.max(8, Math.min(28, Number.isFinite(v) ? v : 18))),
   }
 
+  const overLimit = visualLines > TOTAL_LINES
+  const totalRendered = Math.max(TOTAL_LINES, visualLines, (caretLine ?? -1) + 1)
+
   const linesEl = useMemo(
     () =>
-      NUMBERS.map((n, i) => (
-        <div className={`line${i === caretLine ? ' active' : ''}`} key={n}>
-          <div className="line-num">
-            {i === 0 ? (
-              <span className="num-label">
-                TEXTO
-                <br />
-                DEFINITIVO
-              </span>
-            ) : (
-              n
-            )}
+      Array.from({ length: totalRendered }, (_, i) => {
+        const n = i + 1
+        const extra = i >= TOTAL_LINES
+        return (
+          <div className={`line${i === caretLine ? ' active' : ''}${extra ? ' extra' : ''}`} key={n}>
+            <div className="line-num">
+              {i === 0 ? (
+                <span className="num-label">
+                  TEXTO
+                  <br />
+                  DEFINITIVO
+                </span>
+              ) : (
+                n
+              )}
+            </div>
+            <div className="line-text" />
           </div>
-          <div className="line-text" />
-        </div>
-      )),
-    [caretLine],
+        )
+      }),
+    [caretLine, totalRendered],
   )
 
   useEffect(() => {
@@ -1117,8 +1103,9 @@ function Editor() {
         <span className="brand">SB REDAÇÃO</span>
 
         <div className="stats">
-          <span className="stat">
-            Linhas <strong>{Math.min(visualLines, TOTAL_LINES)}/{TOTAL_LINES}</strong>
+          <span className={`stat${overLimit ? ' over' : ''}`}>
+            Linhas <strong>{visualLines || 1}/{TOTAL_LINES}</strong>
+            {overLimit ? ` (+${visualLines - TOTAL_LINES})` : ''}
           </span>
           <span className="stat">Palavras <strong>{words}</strong></span>
           <span className="stat">Caracteres <strong>{chars}</strong></span>
@@ -1338,6 +1325,11 @@ function Editor() {
           <div className="warning warning-timer">
             Tempo esgotado! Se estiver treinando a prova, finalize a redação agora.
             <button className="warning-close" onClick={() => setTimedOut(false)}>Fechar</button>
+          </div>
+        )}
+        {overLimit && (
+          <div className="warning warning-over">
+            Você passou de 30 linhas ({visualLines}/30). Na prova só valem as 30 primeiras — revise para caber. Nada foi cortado.
           </div>
         )}
 

@@ -8,7 +8,7 @@ Acesse: https://pedrotardem7.github.io/sb-redacao/
 
 ### A folha
 - Clique na folha e comece a digitar. O texto se ajusta às linhas numeradas da folha.
-- No topo você acompanha **linhas usadas (de 30)**, **palavras** e **caracteres**. O texto trava em 30 linhas, como na folha.
+- No topo você acompanha **linhas usadas (de 30)**, **palavras** e **caracteres**. Se passar de 30 linhas, nada é cortado: a folha cresce, as linhas excedentes ficam marcadas e aparece um aviso.
 - O que você escreve é **salvo automaticamente** no navegador: pode fechar e voltar depois que o texto continua lá.
 - **Digitação / Cursiva**: troca a letra do texto, inclusive com estilo de manuscrito. **A− / A+** ajusta o tamanho.
 
