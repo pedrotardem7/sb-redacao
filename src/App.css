@@ -1337,11 +1337,19 @@
 }
 
 @media (max-width: 640px) {
+  /* Miolo travado no padrão PC (720px) para a contagem de linhas
+     ser idêntica no celular e no computador. A folha rola na
+     horizontal em vez de requebrar o texto. */
+  .main {
+    overflow-x: auto;
+  }
   .sheet {
-    --line-h: 24px;
-    --num-w: 46px;
-    --pad-x: 18px;
-    --total-h: 720px;
+    --line-h: 28px;
+    --num-w: 56px;
+    --pad-x: 36px;
+    --total-h: 840px;
+    width: 720px;
+    max-width: none;
   }
 }
 
